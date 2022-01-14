@@ -7,7 +7,7 @@ def calculate_iou_tf(truth_sid,
                      pred_sid,
                      truth_shower_sid,
                      pred_shower_sid,
-                     hit_weight, return_all=False):
+                     hit_weight, return_all=False, check=False):
 
     with tf.device('/cpu:0'):
         # print("1")
@@ -22,8 +22,8 @@ def calculate_iou_tf(truth_sid,
         len_truth_showers = len(truth_shower_sid)
 
         # print("3")
-        truth_idx_2 = tf.zeros_like(truth_sid)
-        pred_idx_2 = tf.zeros_like(pred_sid)
+        truth_idx_2 = tf.zeros_like(truth_sid) -1
+        pred_idx_2 = tf.zeros_like(pred_sid) -1
         hit_weight_2 = tf.zeros_like(hit_weight)
 
         # print("3.1")
@@ -116,7 +116,8 @@ def calculate_eiou(truth_sid,
     return all_iou, overlap_matrix, pred_sum_matrix.numpy(), truth_sum_matrix.numpy(), intersection_sum_matrix.numpy()
 
 
-def reconstruct_showers_cond_op(cc, beta, beta_threshold=0.5, dist_threshold=0.5, limit=500, return_alpha_indices=False, pred_dist=None, max_hits_per_shower=-1):
+def reconstruct_showers_cond_op(cc, beta, beta_threshold=0.5, dist_threshold=0.5, limit=500, return_alpha_indices=False, pred_dist=None, max_hits_per_shower=-1,
+                                soft=False):
     from condensate_op import BuildCondensates
 
     asso, iscond, ncond = BuildCondensates(
@@ -125,7 +126,8 @@ def reconstruct_showers_cond_op(cc, beta, beta_threshold=0.5, dist_threshold=0.5
         row_splits=tf.convert_to_tensor(np.array([0, len(cc)], np.int32)),
         dist=tf.convert_to_tensor(pred_dist[..., np.newaxis]) if pred_dist is not None else None,
         min_beta=beta_threshold,
-        radius=dist_threshold)
+        radius=dist_threshold,
+        soft=soft)
 
     asso = asso.numpy().tolist()
     iscond = iscond.numpy()

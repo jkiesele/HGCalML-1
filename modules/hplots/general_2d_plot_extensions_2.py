@@ -7,7 +7,7 @@ hplots.response_scale.register()
 
 class ResponsePlot(General2dBinningPlot):
     def __init__(self,**kwargs):
-        super(ResponsePlot, self).__init__(**kwargs)
+        super(ResponsePlot, self).__init__(**kwargs, yscale='response_scale')
 
     def draw(self, name_tag_formatter=None, return_fig=False):
         fig = super().draw(name_tag_formatter, return_fig=True)
@@ -29,8 +29,12 @@ class ResponsePlot(General2dBinningPlot):
         lows = []
         highs = []
 
+        bug_in_error_comptuation = True
+
         if weights is None:
+            bug_in_error_comptuation = False
             weights = np.ones_like(y_values)
+
 
         for i in range(len(e_bins) - 1):
             l = e_bins[i]
@@ -57,7 +61,8 @@ class ResponsePlot(General2dBinningPlot):
         processed_data['bin_upper_energy'] = np.array(highs)
         processed_data['hist_values'] = hist_values
         processed_data['mean'] = np.array(mean)
-        processed_data['error'] = np.array(error)
+        if not bug_in_error_comptuation:
+            processed_data['error'] = np.array(error)
 
         return processed_data
 
@@ -65,12 +70,12 @@ class ResponsePlot(General2dBinningPlot):
 
 class ResolutionPlot(General2dBinningPlot):
     def __init__(self,**kwargs):
-        super(ResolutionPlot, self).__init__(**kwargs)
+        super(ResolutionPlot, self).__init__(**kwargs, yscale='response_scale')
 
     def draw(self, name_tag_formatter=None, return_fig=False):
         fig = super().draw(name_tag_formatter, return_fig=True)
         axes = fig.axes
-        axes[0].axhline(1, 0, 1, ls='--', linewidth=0.5, color='gray')
+        # axes[0].axhline(1, 0, 1, ls='--', linewidth=0.5, color='gray')
         axes[0].axhline(0, 0, 1, ls='--', linewidth=0.5, color='gray')
         if return_fig:
             return fig
@@ -87,20 +92,31 @@ class ResolutionPlot(General2dBinningPlot):
         highs = []
         error = []
 
+        bug_in_error_comptuation=True
+
+        if weights is None:
+            bug_in_error_comptuation=False
+            weights = np.ones_like(y_values)
+
         for i in range(len(e_bins) - 1):
             l = e_bins[i]
             h = e_bins[i + 1]
 
             filter = np.argwhere(np.logical_and(x_values > l, x_values < h))
             filtered_y_values = y_values[filter].astype(np.float)
+            filtered_weights = weights[filter].astype(float)
+            # filtered_y_values = filtered_y_values * filtered_weights
 
             m = np.mean(filtered_y_values)
-            m = (np.std(filtered_y_values - m) / m)
-            mean.append(m)
+            relvar = (filtered_y_values - m) / m
+            rms = np.sqrt(np.sum(filtered_weights * relvar ** 2) / np.sum(filtered_weights))
+
+            # m = (np.std(filtered_y_values - m) / m)
+            mean.append(rms)
             # print(np.sum(filtered_found), len(filtered_found), m, l, h)
             lows.append(l)
             highs.append(h)
-            error.append(m / np.sqrt(float(len(filtered_y_values))))
+            error.append(rms / np.sqrt(float(len(filtered_y_values))))
 
 
 
@@ -113,7 +129,8 @@ class ResolutionPlot(General2dBinningPlot):
         processed_data['bin_upper_energy'] = np.array(highs)
         processed_data['hist_values'] = hist_values
         processed_data['mean'] = np.array(mean)
-        processed_data['error'] = np.array(error)
+        if not bug_in_error_comptuation:
+            processed_data['error'] = np.array(error)
 
         return processed_data
 
@@ -134,9 +151,11 @@ class EfficiencyFakeRatePlot(General2dBinningPlot):
         lows = []
         highs = []
 
-        if weights is None:
-            weights = np.ones_like(y_values)
+        bug_in_error_comptuation = True
 
+        if weights is None:
+            bug_in_error_comptuation = False
+            weights = np.ones_like(y_values)
 
         for i in range(len(e_bins) - 1):
             l = e_bins[i]
@@ -162,7 +181,8 @@ class EfficiencyFakeRatePlot(General2dBinningPlot):
         processed_data['bin_upper_energy'] = np.array(highs)
         processed_data['hist_values'] = hist_values
         processed_data['mean'] = np.array(mean)
-        processed_data['error'] = np.array(error)
+        if not bug_in_error_comptuation:
+            processed_data['error'] = np.array(error)
 
         return processed_data
 

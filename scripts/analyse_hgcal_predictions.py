@@ -11,6 +11,8 @@ import hplots.hgcal_analysis_plotter as hp
 import sql_credentials
 from experiment_database_manager import ExperimentDatabaseManager
 
+
+hp.setstyles(14)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         'Analyse predictions from object condensation and plot relevant results')
@@ -28,12 +30,14 @@ if __name__ == '__main__':
     parser.add_argument('-d', help='Distance threshold (default 0.5)', default='0.5')
     parser.add_argument('-i', help='IOU threshold (default 0.1)', default='0.1')
     parser.add_argument('-v', help='Ignore, functionality removed', default='0')
-    parser.add_argument('-m', help='Matching type. 0 for IOU based matching, 1 for f score based matching', default='2')
+    parser.add_argument('-m', help='Matching type. 0 for IOU based matching, 1 for f score based matching', default='0')
     parser.add_argument('--et', help='Energy type. See matching_and_analysis.py for options. Control+F for \'ENERGY_GATHER_TYPE_PRED_ENERGY\'', default='1')
     parser.add_argument('--soft', help='uses soft object condensation', action='store_true')
     parser.add_argument('--analysisoutpath', help='Will dump analysis to a file to remake plots without re-running everything.',
                         default='')
     parser.add_argument('--local_distance_scaling', help='With local distance scaling', action='store_true')
+    parser.add_argument('--de_e_cut_on_matching', help='dE/E threshold to allow match.', default='-1')
+    parser.add_argument('--dont_use_op', help='Use condensate op', action='store_true')
     parser.add_argument('--gpu', help='GPU', default='')
     args = parser.parse_args()
 
@@ -46,17 +50,25 @@ if __name__ == '__main__':
     iou_threshold = float(args.i)
     database_table_prefix = args.database_table_prefix
 
+    de_e_cut_on_matching = float(args.de_e_cut_on_matching)
+
     matching_type = int(args.m)
     # matching_type = matching_and_analysis.MATCHING_TYPE_IOU_MAX if matching_type==0 else matching_and_analysis.MATCHING_TYPE_MAX_FOUND
 
     energy_gather_type = int(args.et)
+
+    use_op = not args.dont_use_op
+
 
     metadata = matching_and_analysis.build_metadeta_dict(beta_threshold=beta_threshold,
                                                          distance_threshold=distance_threshold,
                                                          iou_threshold=iou_threshold,
                                                          matching_type=matching_type,
                                                          with_local_distance_scaling=args.local_distance_scaling,
-                                                         energy_gather_type=energy_gather_type
+                                                         energy_gather_type=energy_gather_type,
+                                                         soft=args.soft,
+                                                         use_op=use_op,
+                                                         de_e_cut_on_matching=de_e_cut_on_matching
                                                          )
 
     files_to_be_tested = []

@@ -7,8 +7,9 @@ class GeneralHistogramPlot():
         self.models_data = list()
         self.e_bins = bins
 
-        if type(bins) is not np.ndarray:
-            raise ValueError("bins has to be numpy array")
+        if bins is not None:
+            if type(bins) is not np.ndarray:
+                raise ValueError("bins has to be numpy array")
 
         self.x_label = x_label
         self.y_label = y_label
@@ -19,7 +20,12 @@ class GeneralHistogramPlot():
 
 
     def _compute(self, values):
-        e_bins = self.e_bins
+
+        if self.e_bins is not None:
+            e_bins = self.e_bins
+        else:
+            _, e_bins = np.histogram(values)
+
         e_bins_n = np.array(e_bins)
         e_bins_n = (e_bins_n - e_bins_n.min()) / (e_bins_n.max() - e_bins_n.min())
 
@@ -71,13 +77,19 @@ class GeneralHistogramPlot():
         else:
             ax1 = axis
 
+        do_legend = False
+
         max_of_hist_values = 0
         for model_data in self.models_data:
             lows = model_data['bin_lower_energy']
             highs = model_data['bin_upper_energy']
             hist_values = model_data['hist_values']
 
-            e_bins = self.e_bins
+            if self.e_bins is not None:
+                e_bins = self.e_bins
+            else:
+                e_bins = np.array(lows.tolist() + [highs[-1]])
+
             e_bins_n = np.array(e_bins)
             e_bins_n = (e_bins_n - e_bins_n.min()) / (e_bins_n.max() - e_bins_n.min())
 
@@ -92,20 +104,23 @@ class GeneralHistogramPlot():
             else:
                 name_of_plot = name_tag_formatter(tags)
 
+            do_legend = do_legend or len(name_of_plot) > 0
+
             hist_values = hist_values.tolist()
 
             e_bins = np.concatenate(([lows[0]], highs), axis=0)
             max_of_hist_values = max(max_of_hist_values, np.max(hist_values))
 
-            ax1.step(e_bins, [hist_values[0]] + hist_values, alpha=0.7)
+            ax1.step(e_bins, [hist_values[0]] + hist_values, alpha=0.7, label=name_of_plot)
             # ax1.fill_between(e_bins, [hist_values[0]] + hist_values, step="pre", alpha=0.2)
 
             if self.histogram_log:
                 ax1.set_yscale('log')
             ax1.set_title(self.title)
 
-            ax1.set_xlabel(self.x_label)
-            ax1.set_ylabel(self.y_label)
+        ax1.set_xlabel(self.x_label)
+        ax1.set_ylabel(self.y_label)
+        if do_legend:
             ax1.legend(loc='center right')
 
         # ax1.set_ylim(0, 1.04)

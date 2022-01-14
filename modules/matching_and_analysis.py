@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
@@ -25,6 +24,7 @@ MATCHING_TYPE_IOM_MAX_MULTIPASS = 5
 NODE_TYPE_TRUTH_SHOWER = 0
 NODE_TYPE_PRED_SHOWER = 1
 NODE_TYPE_RECHIT = 7
+NODE_TYPE_VIRTUAL_DATA = 13
 
 
 ENERGY_GATHER_TYPE_PRED_ENERGY = 0
@@ -176,7 +176,10 @@ def build_metadeta_dict(beta_threshold=0.5, distance_threshold=0.5, iou_threshol
                         with_local_distance_scaling=False, beta_weighting_param=1, angle_threshold=0.08, precision_threshold=0.2,
                         passes=5, max_hits_per_shower=-1, hit_weight_for_intersection=HIT_WEIGHT_TYPE_RECHIT_ENERGY,
                         log_of_distributions=0, energy_gather_type=ENERGY_GATHER_TYPE_PRED_ENERGY,
-                        classes=['EM', 'Hadronic', 'MIP', 'Undef']):
+                        classes=['EM', 'Hadronic', 'MIP', 'Undef'],
+                        soft=False,
+                        use_op=False,
+                        de_e_cut_on_matching=-1):
     metadata = dict()
     metadata['beta_threshold'] = beta_threshold
     metadata['distance_threshold'] = distance_threshold
@@ -193,12 +196,12 @@ def build_metadeta_dict(beta_threshold=0.5, distance_threshold=0.5, iou_threshol
     metadata['max_hits_per_shower'] = max_hits_per_shower
     metadata['hit_weight_for_intersection'] = hit_weight_for_intersection
     metadata['log_of_distributions'] = log_of_distributions
-
     metadata['energy_type'] = energy_gather_type
     metadata['classes'] = classes
-
-
     metadata['beta_weighting_param'] = beta_weighting_param # This is not beta threshold
+    metadata['soft'] = soft
+    metadata['use_op'] = use_op
+    metadata['de_e_cut_on_matching'] = de_e_cut_on_matching
 
     return metadata
 
@@ -280,14 +283,8 @@ class OCRecoGraphAnalyzer:
 
             node_attributes['pt'] = node_attributes['energy'] / np.cosh(node_attributes['eta'])
 
-            # print("pt and energy", node_attributes['pt'],node_attributes['energy'])
-
-            #node_attributes['dep_energy'] = truth_dict['truthHitAssignedDepEnergies'][
-            #    truth_shower_idx[i], 0].item()
             node_attributes['pid'] = truth_dict['truthHitAssignedPIDs'][truth_shower_idx[i], 0].item()\
                 if 'truthHitAssignedPIDs' in truth_dict  else 0
-
-            # print("Truth pid", node_attributes['pid'])
 
             node_attributes['type'] = NODE_TYPE_TRUTH_SHOWER
 
@@ -305,8 +302,6 @@ class OCRecoGraphAnalyzer:
 
         d_eta_phi = np.sqrt((etas[..., np.newaxis] - etas[np.newaxis, ...])**2 + (phis[..., np.newaxis] - phis[np.newaxis, ...])**2)
         lsf = energies / np.sum(np.less_equal(d_eta_phi, 0.5)  * energies[np.newaxis, ...], axis=1)
-
-
         e_other =  np.sum(np.less_equal(d_eta_phi, 0.3) * (1 - np.eye(N=len(d_eta_phi)))  * energies[np.newaxis, ...], axis=1)
 
         truth_nodes_2 = []
@@ -330,49 +325,44 @@ class OCRecoGraphAnalyzer:
 
         if self.with_local_distance_scaling:
             # print("Doing with pred dist")
-            pred_sid, pred_shower_alpha_idx = reconstruct_showers(pred_dict['pred_ccoords'],
-                                                                  pred_dict['pred_beta'][:,0],
-                                                                  self.beta_threshold,
-                                                                  self.distance_threshold,
-                                                                  max_hits_per_shower=self.metadata['max_hits_per_shower'],
-                                                                  return_alpha_indices=True,
-                                                                  limit=1000, pred_dist=pred_dict['pred_dist'][:, 0])
+            if not self.metadata['use_op']:
+                pred_sid, pred_shower_alpha_idx = reconstruct_showers(pred_dict['pred_ccoords'],
+                                                                      pred_dict['pred_beta'][:,0],
+                                                                      self.beta_threshold,
+                                                                      self.distance_threshold,
+                                                                      max_hits_per_shower=self.metadata['max_hits_per_shower'],
+                                                                      return_alpha_indices=True,
+                                                                      limit=1000, pred_dist=pred_dict['pred_dist'][:, 0])
 
-            #
-            # # print(pred_dict['pred_ccoords'].shape, pred_dict['pred_beta'][:,0].shape, self.beta_threshold, self.distance_threshold)
-            # pred_sid2, pred_shower_alpha_idx2 = reconstruct_showers_cond_op(pred_dict['pred_ccoords'],
-            #                                                       pred_dict['pred_beta'][:,0],
-            #                                                       self.beta_threshold,
-            #                                                       self.distance_threshold,
-            #                                                       max_hits_per_shower=self.metadata['max_hits_per_shower'],
-            #                                                       return_alpha_indices=True,
-            #                                                       limit=1000, pred_dist=pred_dict['pred_dist'][:, 0])
-            # print(np.sort(pred_shower_alpha_idx))
-            # print(np.sort(pred_shower_alpha_idx2))
-            # print(len(pred_shower_alpha_idx2), len(pred_shower_alpha_idx))
-            #
-            # print("stopped with local scaling")
-            # 0/0
-
-
+            else:
+                pred_sid, pred_shower_alpha_idx = reconstruct_showers_cond_op(pred_dict['pred_ccoords'],
+                                                                      pred_dict['pred_beta'][:,0],
+                                                                      self.beta_threshold,
+                                                                      self.distance_threshold,
+                                                                      max_hits_per_shower=self.metadata['max_hits_per_shower'],
+                                                                      return_alpha_indices=True,
+                                                                      limit=1000, pred_dist=pred_dict['pred_dist'][:, 0],
+                                                                              soft=self.metadata['soft'])
 
         else:
             # print(pred_dict['pred_ccoords'].shape, pred_dict['pred_beta'][:,0].shape, self.beta_threshold, self.distance_threshold)
-            pred_sid, pred_shower_alpha_idx = reconstruct_showers(pred_dict['pred_ccoords'],
-                                                                  pred_dict['pred_beta'][:,0],
-                                                                  self.beta_threshold,
-                                                                  self.distance_threshold,
-                                                                  max_hits_per_shower=self.metadata['max_hits_per_shower'],
-                                                                  return_alpha_indices=True, limit=1000)
+            if not self.metadata['use_op']:
+                pred_sid, pred_shower_alpha_idx = reconstruct_showers(pred_dict['pred_ccoords'],
+                                                                      pred_dict['pred_beta'][:,0],
+                                                                      self.beta_threshold,
+                                                                      self.distance_threshold,
+                                                                      max_hits_per_shower=self.metadata['max_hits_per_shower'],
+                                                                      return_alpha_indices=True, limit=1000)
 
-
-            # # print(pred_dict['pred_ccoords'].shape, pred_dict['pred_beta'][:,0].shape, self.beta_threshold, self.distance_threshold)
-            # pred_sid2, pred_shower_alpha_idx2 = reconstruct_showers_cond_op(pred_dict['pred_ccoords'],
-            #                                                       pred_dict['pred_beta'][:,0],
-            #                                                       self.beta_threshold,
-            #                                                       self.distance_threshold,
-            #                                                       max_hits_per_shower=self.metadata['max_hits_per_shower'],
-            #                                                       return_alpha_indices=True, limit=1000)
+            else:
+                print("Using op and soft",self.metadata['soft'])
+                pred_sid, pred_shower_alpha_idx = reconstruct_showers_cond_op(pred_dict['pred_ccoords'],
+                                                                      pred_dict['pred_beta'][:,0],
+                                                                      self.beta_threshold,
+                                                                      self.distance_threshold,
+                                                                      max_hits_per_shower=self.metadata['max_hits_per_shower'],
+                                                                      return_alpha_indices=True, limit=1000,
+                                                                              soft=self.metadata['soft'])
             #
             # print(np.sort(pred_shower_alpha_idx))
             # print(np.sort(pred_shower_alpha_idx2))
@@ -415,25 +405,28 @@ class OCRecoGraphAnalyzer:
 
             # print("PID", node_attributes['pid_probability'])
 
+            recHitNoNoiseEnergy = feat_dict['recHitEnergy'].copy()
+            recHitNoNoiseEnergy[self.truth_sid<0] = 0
+
+            recHitOnlyNoiseEnergy = feat_dict['recHitEnergy'].copy()
+            recHitOnlyNoiseEnergy[self.truth_sid>=0] = 0
+
             node_attributes['dep_energy'] = np.sum(feat_dict['recHitEnergy'][pred_sid==sid]).item()
+            node_attributes['dep_energy_no_noise'] = np.sum(recHitNoNoiseEnergy[pred_sid==sid]).item()
+            node_attributes['dep_energy_only_noise'] = np.sum(recHitOnlyNoiseEnergy[pred_sid==sid]).item()
 
             if self.metadata['energy_type'] == ENERGY_GATHER_TYPE_PRED_ENERGY:
                 node_attributes['energy']  = max(pred_dict['pred_energy'][pred_shower_alpha_idx[i]][0].item(), 0)\
                     if 'pred_energy' in pred_dict else node_attributes['dep_energy']
+                node_attributes['corr_factor'] = -1
             elif self.metadata['energy_type'] == ENERGY_GATHER_TYPE_CORRECTION_FACTOR_FROM_CONDENSATION_POINT:
                 node_attributes['energy']  = max(pred_dict['pred_energy_corr_factor'][pred_shower_alpha_idx[i]][0].item(), 0) * node_attributes['dep_energy']
+                node_attributes['corr_factor'] = pred_dict['pred_energy_corr_factor'][pred_shower_alpha_idx[i]][0].item()
             elif self.metadata['energy_type'] == ENERGY_GATHER_TYPE_CORRECTION_FACTOR_PER_HIT:
                 node_attributes['energy']  = np.sum(pred_dict['pred_energy_corr_factor'][pred_sid==sid] * feat_dict['recHitEnergy'][pred_sid==sid])
+                node_attributes['corr_factor'] = -1
             else:
                 raise RuntimeError("Wrong energy gather type")
-
-            a = max(pred_dict['pred_energy'][pred_shower_alpha_idx[i]][0].item(), 0) if 'pred_energy' in pred_dict else node_attributes['dep_energy']
-            b = max(pred_dict['pred_energy_corr_factor'][pred_shower_alpha_idx[i]][0].item(), 0) * node_attributes['dep_energy']
-            c = node_attributes['dep_energy']
-            d = np.sum(pred_dict['pred_energy_corr_factor'][pred_sid==sid] * feat_dict['recHitEnergy'][pred_sid==sid])
-
-
-
 
             rechit_energy = feat_dict['recHitEnergy'][pred_sid==sid]
             rechit_x = feat_dict['recHitX'][pred_sid==sid]
@@ -463,6 +456,9 @@ class OCRecoGraphAnalyzer:
 
     def cost_matrix_intersection_based(self, truth_shower_sid, pred_shower_sid):
 
+        pred_shower_energy = [self.pred_graph.nodes[x]['dep_energy'] for x in pred_shower_sid]
+        truth_shower_energy = [self.truth_graph.nodes[x]['energy'] for x in truth_shower_sid]
+
         if self.metadata['hit_weight_for_intersection'] == HIT_WEIGHT_TYPE_RECHIT_ENERGY:
             weight = self.feat_dict['recHitEnergy'][:, 0]
         elif self.metadata['hit_weight_for_intersection'] == HIT_WEIGHT_TYPE_ONES:
@@ -470,11 +466,32 @@ class OCRecoGraphAnalyzer:
         else:
             raise NotImplementedError("Error")
 
+
+
         iou_matrix = calculate_iou_tf(self.truth_sid,
                                       self.pred_sid,
                                        truth_shower_sid,
                                        pred_shower_sid,
                                        weight)
+
+
+
+        x = calculate_iou_tf(self.truth_sid,
+                                      self.pred_sid,
+                                       [0, 1],
+                                       [1141],
+                                       weight, check=True)
+
+
+        # print(x)
+        # 0/0
+
+
+        if self.metadata['de_e_cut_on_matching']==-1:
+            allow = lambda i,j: True
+        else:
+            de_e_cut_on_matching = self.metadata['de_e_cut_on_matching']
+            allow = lambda i,j : (np.abs(pred_shower_energy[i] - truth_shower_energy[j]) / truth_shower_energy[j]) < de_e_cut_on_matching
 
         n = max(len(truth_shower_sid), len(pred_shower_sid))
         # Cost matrix
@@ -483,17 +500,15 @@ class OCRecoGraphAnalyzer:
             for i in range(len(pred_shower_sid)):
                 for j in range(len(truth_shower_sid)):
                     overlap = iou_matrix[i, j]
-                    if overlap >= self.iou_threshold:
+                    if overlap >= self.iou_threshold and allow(i,j):
                         C[i, j] = overlap
         elif self.matching_type == MATCHING_TYPE_MAX_FOUND:
             for i in range(len(pred_shower_sid)):
                 for j in range(len(truth_shower_sid)):
                     overlap = iou_matrix[i, j]
-                    if overlap >= self.iou_threshold:
+                    if overlap >= self.iou_threshold and allow(i,j):
                         C[i, j] = min(self.truth_graph.nodes[truth_shower_sid[j]]['energy'], self.pred_graph.nodes[pred_shower_sid[i]]['energy'])
         return C
-
-
 
 
     def cost_matrix_angle_based(self, truth_shower_sid, pred_shower_sid):
@@ -535,6 +550,7 @@ class OCRecoGraphAnalyzer:
 
         if return_rechit_data:
             matched_full_graph = self.attach_rechit_data(matched_full_graph)
+        matched_full_graph.add_nodes_from(self.graph_data_node)
         self.non_reduced_graph = matched_full_graph
 
         return matched_full_graph
@@ -723,6 +739,7 @@ class OCRecoGraphAnalyzer:
         matched_full_graph = nx.Graph()
         matched_full_graph.add_nodes_from(self.truth_graph.nodes(data=True))
         matched_full_graph.add_nodes_from(self.pred_graph.nodes(data=True))
+        matched_full_graph.add_nodes_from(self.graph_data_node)
 
         for p, t in zip(row_id, col_id):
             if C[p, t] > 0:
@@ -849,6 +866,12 @@ class OCRecoGraphAnalyzer:
         pred_graph, pred_sid = self.build_pred_graph(pred_dict, feat_dict)
         self.pred_graph = pred_graph
         self.pred_sid = pred_sid
+
+        self.graph_data_node = [('graph_data', {
+            'total_rechit_sum': np.sum(self.feat_dict['recHitEnergy']),
+            'total_noise_rechit_sum': np.sum(self.feat_dict['recHitEnergy'][self.truth_sid==-1]),
+            'type': NODE_TYPE_VIRTUAL_DATA,
+        })]
 
         return self.match(return_rechit_data)
 
@@ -1033,15 +1056,45 @@ class OCMatchingVisualizer():
         self.number_of_passes = 10
 
     def __init__(self, graph_data):
-        self.graph_data = graph_data
+        self.graph_data = graph_data.copy()
+        self.graph_data.remove_node('graph_data')
         self.collect_showers()
 
     def visualize(self):
         # self.draw_calo(self.graph_data)
         self.draw_network()
 
-    def draw_to_plotly(self, fig, ax, graph, title, html_path):
+    def draw_to_plotly(self, fig, ax, graph, title, html_path, true=False):
         showers = [x for x, y in graph.nodes(data=True) if y['type'] == 0 or y['type'] == 1]
+
+        graph_x = self.graph_data.copy()
+        for n,att in self.graph_data.nodes(data=True):
+            if not( att['type']==NODE_TYPE_PRED_SHOWER or att['type']==NODE_TYPE_TRUTH_SHOWER):
+                graph_x.remove_node(n)
+
+
+        # remove =  [33,   121, 35, ]
+        # remove += [1144, 1170, 1162, ]
+        # remove = set(remove)
+        #
+        # showers = [s for s in showers if not s in remove]
+
+        # showers = [s for s in showers if graph.nodes[s]['energy'] < 0.50 and graph.nodes[s]['energy'] > 0.49]
+        # print(showers)
+
+        # 1141
+
+
+        # showers = [0] if 0 in showers else []
+
+        # if not true:
+        #     showers = [1158, 1170, 1151, 1141]
+        #     showers = [1141]
+        # else:
+        #     showers = [0, 2, 139, 4]
+        #     showers = [0]
+
+
 
         X = []
         Y = []
@@ -1051,6 +1104,10 @@ class OCMatchingVisualizer():
         CI = []
 
         Energy = []
+
+        E_attached_to = []
+
+        Shower_id = []
 
         for s in showers:
             if graph.nodes[s]['visible'] == False:
@@ -1064,6 +1121,18 @@ class OCMatchingVisualizer():
             c = [self.cmap(graph.nodes[s]['secondary_color_id'])] * len(e)
             ci = [graph.nodes[s]['secondary_color_id']] * len(e)
 
+            # if s==0:
+            #     print(x)
+            #     print(y)
+            #     print(z)
+            #     print(e)
+                # 0/0
+
+            neighbors = list(graph_x.neighbors(s))
+            energy_attached_to = -1
+            if len(neighbors) > 0:
+                energy_attached_to = graph_x.nodes[neighbors[0]]['energy']
+
             X += x
             Y += y
             Z += z
@@ -1071,6 +1140,8 @@ class OCMatchingVisualizer():
             E += e
             CI += ci
             Energy += [graph.nodes[s]['energy']] * len(e)
+            E_attached_to += [energy_attached_to] * len(e)
+            Shower_id += [s] * len(e)
 
         noise = list(nx.isolates(graph))
         x = [graph.nodes[x]['rechit_x'] for x in noise]
@@ -1081,6 +1152,8 @@ class OCMatchingVisualizer():
         ci = [-1] * len(e)
 
 
+
+
         X += x
         Y += y
         Z += z
@@ -1088,6 +1161,8 @@ class OCMatchingVisualizer():
         E += e
         CI += ci
         Energy += [0 for _ in e]
+        E_attached_to += [0 for _ in e]
+        Shower_id += [0 for _ in e]
 
         E = np.array(E)
 
@@ -1104,12 +1179,14 @@ class OCMatchingVisualizer():
             'color': CI,
             'size': S,
             'energy': Energy,
+            'energy_attached_to': E_attached_to,
+            'shower_id': Shower_id,
         })
 
         fig = px.scatter_3d(df, x="x", y="z", z="y",
                             color="color", size="size",
                             # symbol="recHitID",
-                            hover_data=['energy'],
+                            hover_data=['energy', 'energy_attached_to', 'shower_id'],
                             template='plotly_dark',
                             color_continuous_scale=px.colors.sequential.Rainbow)
         fig.update_traces(marker=dict(line=dict(width=0)))
@@ -1147,8 +1224,8 @@ class OCMatchingVisualizer():
         # graph_pred_and_hits_induced.remove_nodes_from(list(nx.isolates(graph_pred_and_hits_induced)))
         # graph_truth_and_hits_induced.remove_nodes_from(list(nx.isolates(graph_truth_and_hits_induced)))
 
-        self.draw_to_plotly(fig=None, ax=None, graph=graph_truth_and_hits_induced, title='Truth', html_path=html+'_truth.html')
-        self.draw_to_plotly(fig=None, ax=None, graph=graph_pred_and_hits_induced, title='Pred', html_path=html+'_pred.html')
+        self.draw_to_plotly(fig=None, ax=None, graph=graph_truth_and_hits_induced, title='Truth', html_path=html+'_truth.html', true=True)
+        self.draw_to_plotly(fig=None, ax=None, graph=graph_pred_and_hits_induced, title='Pred', html_path=html+'_pred.html', true=False)
 
 
 class OCAnlayzerWrapper():

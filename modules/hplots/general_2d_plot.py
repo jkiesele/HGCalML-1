@@ -93,6 +93,8 @@ class General2dBinningPlot():
 
         max_of_hist_values = 0
 
+        do_legend = False
+
         for model_data in self.models_data:
             error_exists = 'error' in model_data
             lows = model_data['bin_lower_energy']
@@ -116,6 +118,7 @@ class General2dBinningPlot():
             else:
                 name_of_plot = name_tag_formatter(tags)
 
+            do_legend = do_legend or len(name_of_plot) > 0
 
             hist_values = hist_values.tolist()
             mean = mean.tolist()
@@ -139,9 +142,11 @@ class General2dBinningPlot():
             # else:
             else:
                 ax1.step(e_bins, [mean[0]] + mean, label=name_of_plot)
-            ax1.set_xlabel(self.x_label)
-            ax1.set_ylabel(self.y_label)
-            ax1.set_yscale(self.yscale)
+
+        ax1.set_xlabel(self.x_label)
+        ax1.set_ylabel(self.y_label)
+        ax1.set_yscale(self.yscale)
+        if do_legend:
             ax1.legend(loc='center right')
 
         # ax1.set_ylim(0, 1.04)
