@@ -30,7 +30,7 @@ class Multi4HistEnergy():
             values = y_values[filter]
             h.add_raw_values(values, tags)
 
-    def draw(self, formatter):
+    def draw(self, formatter=None):
         fig, ax1 = plt.subplots(2, 2, figsize=(9, 6))
 
         plt.subplots_adjust(left=0.1,
