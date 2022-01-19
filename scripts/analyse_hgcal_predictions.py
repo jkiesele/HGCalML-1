@@ -32,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', help='Ignore, functionality removed', default='0')
     parser.add_argument('-m', help='Matching type. 0 for IOU based matching, 1 for f score based matching', default='0')
     parser.add_argument('--et', help='Energy type. See matching_and_analysis.py for options. Control+F for \'ENERGY_GATHER_TYPE_PRED_ENERGY\'', default='1')
-    parser.add_argument('--soft', help='uses soft object condensation', action='store_true')
+    #not forwarded right now parser.add_argument('--soft', help='uses soft object condensation', action='store_true')
     parser.add_argument('--analysisoutpath', help='Will dump analysis to a file to remake plots without re-running everything.',
                         default='')
     parser.add_argument('--local_distance_scaling', help='With local distance scaling', action='store_true')

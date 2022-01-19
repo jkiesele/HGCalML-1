@@ -129,6 +129,20 @@ def reconstruct_showers_cond_op(cc, beta, beta_threshold=0.5, dist_threshold=0.5
         radius=dist_threshold,
         soft=soft)
 
+def reconstruct_showers(cc, beta, beta_threshold=0.5, dist_threshold=0.5,
+                        limit=500, return_alpha_indices=False, pred_dist=None,
+                        max_hits_per_shower=-1):
+
+    from assign_condensate_op import BuildAndAssignCondensates
+
+    asso, iscond, _ = BuildAndAssignCondensates(
+        tf.convert_to_tensor(tf.convert_to_tensor(cc)),
+        tf.convert_to_tensor(tf.convert_to_tensor(beta)),
+        row_splits=tf.convert_to_tensor(np.array([0, len(cc)], np.int32)),
+        dist=tf.convert_to_tensor(pred_dist) if pred_dist is not None else None,
+        min_beta=beta_threshold,
+        radius=dist_threshold)
+
     asso = asso.numpy().tolist()
     iscond = iscond.numpy()
 
@@ -189,14 +203,8 @@ def reconstruct_showers(cc, beta, beta_threshold=0.5, dist_threshold=0.5, limit=
         dists_filtered = np.sqrt(np.sum((cc_alpha - cc_beta_filtered)**2, axis=-1))
         beta_filtered_remaining[dists_filtered < this_threshold] = 0
 
-        if max_index == limit:
-            break
-        alpha_indices.append(alpha_index[0])
+    return pred_sid
 
-    if return_alpha_indices:
-        return pred_sid, np.array(alpha_indices)
-    else:
-        return pred_sid
 
 def match(truth_sid, pred_sid, energy, iou_threshold=0.1):
     truth_sid = truth_sid.astype(np.int32)

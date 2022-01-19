@@ -11,6 +11,7 @@ import tensorflow as tf
 
 import plotly.express as px
 import pandas as pd
+import time
 
 # Matching types
 MATCHING_TYPE_IOU_MAX = 0
@@ -237,6 +238,9 @@ class OCRecoGraphAnalyzer:
         # A disconnected graph with all the nodes with truth information
         truth_graph = nx.Graph()
 
+        # this should be read from a global "name" for truthHitAssignementIdx in case it changes
+        # e.g. from globals.py
+        
         truth_sid = truth_dict['truthHitAssignementIdx'][:, 0].astype(np.int32)
         truth_shower_sid, truth_shower_idx = np.unique(truth_sid, return_index=True)
 
@@ -245,6 +249,11 @@ class OCRecoGraphAnalyzer:
         for i in range(len(truth_shower_sid)):
             if truth_shower_sid[i] == -1:
                 continue
+            
+            '''
+            here it is much cleaner to just pass-through the truth dicts instead of 
+            creating more hard coded dependencies
+            '''
 
             node_attributes = dict()
 
@@ -291,14 +300,12 @@ class OCRecoGraphAnalyzer:
             node = (int(truth_shower_sid[i]), node_attributes)
             truth_nodes.append(node)
 
+            #what is this used for actually?
             num_vertices_per_truth.append(np.sum(truth_sid==truth_shower_sid[i]))
             node_attributes['num_hits'] = np.sum(truth_sid==truth_shower_sid[i])
 
 
 
-        energies = np.array([x[1]['energy'] for x in truth_nodes])
-        etas = np.array([x[1]['eta'] for x in truth_nodes])
-        phis = np.array([x[1]['phi'] for x in truth_nodes])
 
         d_eta_phi = np.sqrt((etas[..., np.newaxis] - etas[np.newaxis, ...])**2 + (phis[..., np.newaxis] - phis[np.newaxis, ...])**2)
         lsf = energies / np.sum(np.less_equal(d_eta_phi, 0.5)  * energies[np.newaxis, ...], axis=1)
@@ -373,6 +380,7 @@ class OCRecoGraphAnalyzer:
             # 0/0
 
 
+
         pred_sid += start_indicing_from
 
         pred_shower_sid = []
@@ -380,6 +388,13 @@ class OCRecoGraphAnalyzer:
             pred_shower_sid.append(pred_sid[i])
 
         pred_nodes = []
+        
+        '''
+        with the exception of the energy treatment, this should also 
+        be just a pass through of dict items.
+        but I would have a dedicated function to add these node attributes
+        to keep it more transparent what's going on.
+        '''
 
         mean_vertices_per_pred = []
         for i in range(len(pred_shower_sid)):
@@ -455,7 +470,6 @@ class OCRecoGraphAnalyzer:
         return pred_graph, pred_sid
 
     def cost_matrix_intersection_based(self, truth_shower_sid, pred_shower_sid):
-
         pred_shower_energy = [self.pred_graph.nodes[x]['dep_energy'] for x in pred_shower_sid]
         truth_shower_energy = [self.truth_graph.nodes[x]['energy'] for x in truth_shower_sid]
 
@@ -560,6 +574,10 @@ class OCRecoGraphAnalyzer:
             return None
         if len(truth_nodes) == 1:
             return truth_nodes[0]
+        
+        '''
+        what does this function do? What is it for?
+        '''
 
         node_attributes = dict()
 
@@ -646,6 +664,12 @@ class OCRecoGraphAnalyzer:
 
     def attach_rechit_data(self, g):
         id_max = np.max(g.nodes()) + 1000
+        
+        '''
+        Here we are attaching rechits again? Didn't we do that already?
+        Also, this "+1000" is dangerous - what is it for? does it need to be 1000?
+        What happens if it's 1001?
+        '''
 
         graph_2 = g.copy()
 
@@ -873,7 +897,7 @@ class OCRecoGraphAnalyzer:
             'type': NODE_TYPE_VIRTUAL_DATA,
         })]
 
-        return self.match(return_rechit_data)
+        return self.process(return_rechit_data)
 
 
 class OCMatchingVisualizer():
@@ -1289,7 +1313,7 @@ class OCAnlayzerWrapper():
         return analysed_graphs, metadata
 
 
-    def analyse_from_data(self, data, beta_threshold=-1, distance_threshold=-1, limit_endcaps=-1):
+    def analyse_from_data(self, data, beta_threshold=-1, distance_threshold=-1, limit_endcaps=-1, limit_endcaps_by_time=-1):
         """
         This function is used in hyper param optimizer potentially so it gives an option to override beta threshold and distance threshold.
         Leave -1 for normal functioning otherwise change them both together.
@@ -1304,8 +1328,10 @@ class OCAnlayzerWrapper():
         analysed_graphs = []
         done=False
         nendcaps_done = 0
+        
         for i, file_data in enumerate(data):
             # print("Analysing file", i)
+            starttime = time.time()
             for j, endcap_data in enumerate(file_data):
                 # print("\tAnalysing Endcap", j)
                 x = self.graph_analyzer.analyse(endcap_data[0], endcap_data[2], endcap_data[1])
@@ -1313,8 +1339,10 @@ class OCAnlayzerWrapper():
                 nendcaps_done += 1
                 if nendcaps_done == limit_endcaps and limit_endcaps != -1:
                     done = True
+                if limit_endcaps_by_time>0 and limit_endcaps_by_time < time.time() - starttime:
+                    done=True
+                if done:
                     break
-
             if done:
                 break
 
