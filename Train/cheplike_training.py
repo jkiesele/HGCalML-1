@@ -1,12 +1,12 @@
 '''
 
 Compatible with the dataset here:
-/eos/cms/store/cmst3/group/hgcal/CMG_studies/pepr/Dec2021_production
+/eos/cms/store/cmst3/group/hgcal/CMG_studies/pepr/Jan2022_production_3
 
 On flatiron:
-/mnt/ceph/users/jkieseler/HGCalML_data/Dec2021_production
+/mnt/ceph/users/jkieseler/HGCalML_data/Jan2022_production_3
 
-not compatible with datasets before end of October 2021
+not compatible with datasets before end of Jan 2022
 
 '''
 from callback_wrappers import build_callbacks
@@ -67,9 +67,9 @@ batchnorm_options={
 
 #loss options:
 loss_options={
-    'q_min': 2.5,
+    'q_min': .5,
     'alt_energy_weight': False,
-    'use_average_cc_pos': 0.1
+    'use_average_cc_pos': 0.5
     }
 
 dense_activation='relu'
@@ -153,7 +153,7 @@ def gravnet_model(Inputs,
         n_dims = 6
         #exchange information, create coordinates
         x = Concatenate()([c_coords,c_coords,c_coords,coords,x])
-        xgn, gncoords, gnnidx, gndist = RaggedGravNet(n_neighbours=256,
+        xgn, gncoords, gnnidx, gndist = RaggedGravNet(n_neighbours=96,
                                                  n_dimensions=n_dims,
                                                  n_filters=64,
                                                  n_propagate=64,
@@ -242,7 +242,9 @@ def gravnet_model(Inputs,
          pre_selection['t_pos'] ,
          pre_selection['t_time'] ,
          pre_selection['t_pid'] ,
-         pre_selection['t_spectator_weight'] ,
+         pre_selection['t_spectator_weight'],
+         pre_selection['t_fully_contained'],
+         pre_selection['t_rec_energy'],
          pre_selection['rs']])
                                          
     #fast feedback
@@ -282,7 +284,7 @@ if not train.modelSet():
     
     from model_tools import apply_weights_from_path
     import os
-    path_to_pretrained = os.getenv("HGCALML")+'/models/pre_selection_multigrav/KERAS_model.h5'
+    path_to_pretrained = os.getenv("HGCALML")+'/models/pre_selection_jan/KERAS_model.h5'
     train.keras_model = apply_weights_from_path(path_to_pretrained,train.keras_model)
     
 
