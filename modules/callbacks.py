@@ -499,7 +499,7 @@ from plotting_tools import publish
 
 
 class RunningFullValidation(tf.keras.callbacks.Callback):
-    def __init__(self, after_n_batches, predictor, hits2showers, shower_matcher, test_on_points,
+    def __init__(self, after_n_batches, predictor, hits2showers, showers_matcher, test_on_points,
                  pdfs_path, min_batch=0,
                  limit_endcaps = -1,#all endcaps in file
                  limit_endcaps_by_time = 600,#in seconds, don't spend more than 10 minutes on this
@@ -515,7 +515,7 @@ class RunningFullValidation(tf.keras.callbacks.Callback):
         self.pdfs_path = pdfs_path
         self.trial_batch = trial_batch
         self.hits2showers = hits2showers
-        self.shower_matcher = shower_matcher
+        self.showers_matcher = showers_matcher
 
         if pdfs_path is None:
             raise RuntimeError("Set pdf output path")
@@ -591,7 +591,7 @@ class RunningFullValidation(tf.keras.callbacks.Callback):
                 'angle_cut': str(self.showers_matcher.angle_cut),
             }
             plotter = HGCalAnalysisPlotter()
-            pdf_path = 'validation_results_%07d_%.2f_%.2f.pdf'%(self.batch_idx, b,d)
+            pdf_path = os.path.join(self.pdfs_path, 'validation_results_%07d_%.2f_%.2f.pdf'%(self.batch_idx, b,d))
             plotter.set_data(showers_dataframe, None, '', pdf_path, scalar_variables=scalar_variables)
             plotter.process()
 
