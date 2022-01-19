@@ -103,24 +103,32 @@ class OCHits2Showers():
         self.with_local_distance_scaling = with_local_distance_scaling
         self.op = op
 
-    def call(self, features_dict, pred_dict):
+    def call(self, features_dict, pred_dict, override_beta=None, override_dist=None):
         """
 
         :param event_data: (features_dict, truth_dict, predictions_dict) coming from HGCal predictor for instance
         :return: Pred sid
         """
 
+        beta_threshold = self.beta_threshold
+        distance_threshold = self.distance_threshold
+
+        if override_beta is not None:
+            beta_threshold = override_beta
+        if override_dist is not None:
+            distance_threshold = override_dist
+
         if self.op:
             pred_sid, pred_shower_alpha_idx = reconstruct_showers(pred_dict['pred_ccoords'],
                                                                   pred_dict['pred_beta'][:, 0],
-                                                                  self.beta_threshold,
-                                                                  self.distance_threshold,
+                                                                  beta_threshold,
+                                                                  distance_threshold,
                                                                   pred_dist=pred_dict['pred_dist'] if self.with_local_distance_scaling else None)
         else:
             pred_sid, pred_shower_alpha_idx = reconstruct_showers_no_op(pred_dict['pred_ccoords'],
                                                                   pred_dict['pred_beta'],
-                                                                  self.beta_threshold,
-                                                                  self.distance_threshold,
+                                                                  beta_threshold,
+                                                                  distance_threshold,
                                                                   pred_dist=pred_dict['pred_dist'] if self.with_local_distance_scaling else None)
 
         processed_pred_dict = dict()

@@ -16,7 +16,7 @@ if len(sys.argv) == 4:
     type = sys.argv[3]
 
 if type == 'hgcal':
-    plotter = hp.HGCalAnalysisPlotter3()
+    plotter = hp.HGCalAnalysisPlotter()
 elif type =='trackml':
     raise NotImplementedError('ERROR')
     # plotter = tp.TrackMLPlotter()

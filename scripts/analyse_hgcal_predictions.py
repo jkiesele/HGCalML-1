@@ -10,7 +10,7 @@ import pandas as pd
 
 from OCHits2Showers import OCHits2Showers
 from ShowersMatcher import ShowersMatcher
-from hplots.hgcal_analysis_plotter_3 import HGCalAnalysisPlotter3
+from hplots.hgcal_analysis_plotter import HGCalAnalysisPlotter
 
 def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold, matching_mode, analysisoutpath, nfiles,
             local_distance_scaling, is_soft, op, de_e_cut, angle_cut):
@@ -49,9 +49,11 @@ def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold,
         with gzip.open(analysisoutpath, 'wb') as f:
             print("Writing dataframes to pickled file",analysisoutpath)
             pickle.dump(analysis_data,f)
+
     if len(pdfpath)>0:
-        plotter = HGCalAnalysisPlotter3()
-        plotter.make_plots(showers_dataframe, None, '', pdfpath)
+        plotter = HGCalAnalysisPlotter()
+        plotter.set_data(showers_dataframe, None, '', pdfpath)
+        plotter.process()
 
 
 if __name__ == '__main__':

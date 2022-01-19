@@ -1,3 +1,4 @@
+raise NotImplementedError('Needs to be revamped with the new code. To be done soon')
 import numpy as np
 import tensorflow as tf
 from importlib import reload
