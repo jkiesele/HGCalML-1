@@ -49,7 +49,7 @@ def reconstruct_showers(cc, beta, beta_threshold=0.5, dist_threshold=0.5, pred_d
     map_fn[-1] = -1
     pred_sid = [map_fn[x] for x in asso]
 
-    return pred_sid, pred_shower_alpha_idx
+    return np.array(pred_sid)[:, np.newaxis], pred_shower_alpha_idx
 
 
 def reconstruct_showers_no_op(cc, beta, beta_threshold=0.5, dist_threshold=0.5, pred_dist=None, max_hits_per_shower=-1):
@@ -92,7 +92,7 @@ def reconstruct_showers_no_op(cc, beta, beta_threshold=0.5, dist_threshold=0.5, 
         alpha_indices.append(alpha_index[0])
 
 
-    return pred_sid, alpha_indices
+    return pred_sid[:, np.newaxis], alpha_indices
 
 
 class OCHits2Showers():
@@ -130,7 +130,7 @@ class OCHits2Showers():
                                                                   pred_dist=pred_dict['pred_dist'] if self.with_local_distance_scaling else None)
 
         processed_pred_dict = dict()
-        processed_pred_dict['pred_sid'] = pred_sid[:, np.newaxis]
+        processed_pred_dict['pred_sid'] = pred_sid
         processed_pred_dict['pred_energy'] = np.zeros_like(processed_pred_dict['pred_sid'], np.float)
 
         for idx in pred_shower_alpha_idx:
