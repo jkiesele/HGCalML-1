@@ -47,9 +47,9 @@ def build_callbacks(train,
         hits2showers = OCHits2Showers(0.1, 0.1, is_soft, local_distance_scaling, op=True)
         showers_matcher = ShowersMatcher(matching_mode, iou_threshold, de_e_cut, angle_cut)
 
-        os.system('mkdir %s/full_validation_plots' % (train.outputDir))
+        os.system('mkdir -p %s/full_validation_plots' % (train.outputDir))
 
-        cb += RunningFullValidation(after_n_batches=full_analysis_after_batches,
+        cb += [RunningFullValidation(after_n_batches=full_analysis_after_batches,
                                     predictor=predictor,
                                     hits2showers=hits2showers,
                                     shower_matcher=showers_matcher,
@@ -60,7 +60,7 @@ def build_callbacks(train,
                                     limit_endcaps = -1,#all endcaps in file
                                     limit_endcaps_by_time = 180,#in seconds, don't spend more than 10 minutes on this
                                     trial_batch=10
-        )
+        )]
 
     cb += [
     plotClusterSummary(

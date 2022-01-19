@@ -46,7 +46,7 @@ class HGCalAnalysisPlotter:
         self.pdf_response = PdfPages(os.path.join(self.pdf_path,'response.pdf'))
         # self.pdf_pid = PdfPages(os.path.join(self.pdf_path,'pid.pdf'))
         self.pdf_fake_rate = PdfPages(os.path.join(self.pdf_path,'fake_rate.pdf'))
-        # self.pdf_others = PdfPages(os.path.join(self.pdf_path,'others.pdf'))
+        self.pdf_others = PdfPages(os.path.join(self.pdf_path,'others.pdf'))
         self.pdf_resolution = PdfPages(os.path.join(self.pdf_path,'resolution.pdf'))
         self.pdf_response_histos = PdfPages(os.path.join(self.pdf_path,'response_histos.pdf'))
 
@@ -54,7 +54,7 @@ class HGCalAnalysisPlotter:
         self.pdf_efficiency.close()
         self.pdf_response.close()
         self.pdf_fake_rate.close()
-        # self.pdf_others.close()
+        self.pdf_others.close()
         # self.pdf_pid.close()
         self.pdf_resolution.close()
         self.pdf_response_histos.close()
@@ -77,11 +77,6 @@ class HGCalAnalysisPlotter:
         # Efficiency fo local shower energy fraction
         plot = EfficiencyFakeRatePlot(bins=self.local_shower_fraction_bins, x_label='Local shower energy fraction', y_label='Efficiency')
         x = self.showers_dataframe['truth_local_shower_energy_fraction'][filter_has_truth].to_numpy()
-        v = [(0,0.1), (0.1,0.5)]
-        print(np.min(x), np.max(x))
-        for b in v:
-            f = np.logical_and(x>b[0], x<b[1])
-            print(b, np.mean(x[f]), np.mean(found[f]))
         plot.add_raw_values(self.showers_dataframe['truth_local_shower_energy_fraction'][filter_has_truth].to_numpy(), found)
         self.pdf_efficiency.savefig(plot.draw())
 
@@ -176,6 +171,22 @@ class HGCalAnalysisPlotter:
                             response)
         self.pdf_response.savefig(plot.draw())
 
+    def _write_scalar_properties(self):
+        if self.scalar_variables is None:
+            return
+        text_font = {'fontname': 'Arial', 'size': '14', 'color': 'black', 'weight': 'normal',
+                     'verticalalignment': 'bottom'}
+        fig, ax = plt.subplots(figsize=(8, 3))
+        fig.patch.set_visible(False)
+        ax.axis('off')
+        s = ''
+        for k,v in self.scalar_variables.items():
+            s += '%s = %s\n'%(k,v)
+        fig.text(0, 1, s, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes,
+                 fontdict=text_font)
+        self.pdf_others.savefig(fig)
+
+
     def _make_response_histograms(self):
         filter_has_truth = self.showers_dataframe['truthHitAssignementIdx'].notnull()
         filter_has_pred = self.showers_dataframe['pred_sid'].notnull()
@@ -194,11 +205,12 @@ class HGCalAnalysisPlotter:
 
 
 
-    def set_data(self, showers_dataframe, events_dataframe, model_name, pdf_path):
+    def set_data(self, showers_dataframe, events_dataframe, model_name, pdf_path, scalar_variables=None):
         self.pdf_path = pdf_path
         self.showers_dataframe = showers_dataframe
         self.events_dataframe = events_dataframe
         self.model_name = model_name
+        self.scalar_variables = scalar_variables
 
     def _add_additional_columns(self):
         filter_has_truth = self.showers_dataframe['truthHitAssignementIdx'].notnull().to_numpy()
@@ -245,6 +257,7 @@ class HGCalAnalysisPlotter:
         self._make_pdfs()
 
         self._add_additional_columns()
+        self._write_scalar_properties()
         self._make_efficiency_plots()
         self._make_fake_rate_plots()
         self._make_response_plots()

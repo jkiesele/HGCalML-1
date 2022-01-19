@@ -23,6 +23,7 @@ def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold,
 
     showers_dataframe = pd.DataFrame()
     event_id = 0
+
     for i, file in enumerate(files_to_be_tested):
         print("Analysing file", i)
         with mgzip.open(file, 'rb') as f:
@@ -44,15 +45,30 @@ def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold,
                 event_id += 1
                 showers_dataframe = pd.concat((showers_dataframe, dataframe))
 
+    # This is only to write to pdf files
+    scalar_variables = {
+        'beta_threshold': str(beta_threshold),
+        'distance_threshold': str(distance_threshold),
+        'iou_threshold': str(iou_threshold),
+        'matching_mode': str(matching_mode),
+        'is_soft': str(is_soft),
+        'de_e_cut': str(de_e_cut),
+        'angle_cut': str(angle_cut),
+    }
+
     if len(analysisoutpath) > 0:
-        analysis_data = (showers_dataframe, None)
+        analysis_data = {
+            'showers_dataframe' : showers_dataframe,
+            'events_dataframe' : None,
+            'scalar_variables' : scalar_variables,
+        }
         with gzip.open(analysisoutpath, 'wb') as f:
             print("Writing dataframes to pickled file",analysisoutpath)
             pickle.dump(analysis_data,f)
 
     if len(pdfpath)>0:
         plotter = HGCalAnalysisPlotter()
-        plotter.set_data(showers_dataframe, None, '', pdfpath)
+        plotter.set_data(showers_dataframe, None, '', pdfpath, scalar_variables=scalar_variables)
         plotter.process()
 
 

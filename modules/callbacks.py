@@ -564,8 +564,9 @@ class RunningFullValidation(tf.keras.callbacks.Callback):
             for file_data in all_data:
                 for endcap_data in file_data:
                     features_dict, truth_dict, predictions_dict = endcap_data
-                    processed_pred_dict, pred_shower_alpha_idx = self.hits2showers.call(features_dict, predictions_dict,
-                                                                                        override_beta=b, override_dist=d)
+                    self.hits2showers.set_beta_threshold(b)
+                    self.hits2showers.set_distance_threshold(d)
+                    processed_pred_dict, pred_shower_alpha_idx = self.hits2showers.call(features_dict, predictions_dict)
                     self.showers_matcher.set_inputs(
                         features_dict=features_dict,
                         truth_dict=truth_dict,
@@ -579,10 +580,19 @@ class RunningFullValidation(tf.keras.callbacks.Callback):
                     event_id += 1
                     showers_dataframe = pd.concat((showers_dataframe, dataframe))
 
-
+            # This is only to write to pdf files
+            scalar_variables = {
+                'beta_threshold': str(b),
+                'distance_threshold': str(d),
+                'iou_threshold': str(self.showers_matcher.iou_threshold),
+                'matching_mode': str(self.showers_matcher.match_mode),
+                'is_soft': str(self.hits2showers.is_soft),
+                'de_e_cut': str(self.showers_matcher.de_e_cut),
+                'angle_cut': str(self.showers_matcher.angle_cut),
+            }
             plotter = HGCalAnalysisPlotter()
             pdf_path = 'validation_results_%07d_%.2f_%.2f.pdf'%(self.batch_idx, b,d)
-            plotter.set_data(showers_dataframe, None, '', pdf_path)
+            plotter.set_data(showers_dataframe, None, '', pdf_path, scalar_variables=scalar_variables)
             plotter.process()
 
         print('finished full validation callback, proceeding with training.')

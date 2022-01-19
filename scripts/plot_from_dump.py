@@ -4,10 +4,10 @@ import gzip
 import pickle
 import sys
 
-import hplots.hgcal_analysis_plotter_3 as hp
+import hplots.hgcal_analysis_plotter as hp
 
 with gzip.open(sys.argv[1], 'rb') as f:
-    showers_dataframe, events_dataframe = pickle.load(f)
+    read_data = pickle.load(f)
 
 
 
@@ -24,5 +24,5 @@ else:
     raise NotImplementedError("Error")
 
 pdfpath = sys.argv[2]
-plotter.set_data(showers_dataframe, events_dataframe, '', pdfpath)
+plotter.set_data(read_data['showers_dataframe'], read_data['events_dataframe'], '', pdfpath, scalar_variables=read_data['scalar_variables'])
 plotter.process()
