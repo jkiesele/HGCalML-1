@@ -30,7 +30,15 @@ def LocalGroup(neighbour_idxs, hierarchy_idxs, hierarchy_score, row_splits,
     sel = tf.reshape(sel, [-1,1])
     ggather = tf.reshape(ggather, [-1,1])
     
-    return rs,dirnidx,sel,ggather
+    #safe guard
+    with tf.control_dependencies(
+        [tf.assert_greater(sel,-1),
+         tf.assert_less(sel,row_splits[-1]),
+         tf.assert_greater(dirnidx,-2),
+         tf.assert_less(dirnidx,row_splits[-1])]
+        ):
+    
+        return rs,dirnidx,sel,ggather
     
 
 @ops.RegisterGradient("LocalGroup")

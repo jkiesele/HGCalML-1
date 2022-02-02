@@ -132,11 +132,24 @@ class OCHits2Showers():
         processed_pred_dict = dict()
         processed_pred_dict['pred_sid'] = pred_sid
         processed_pred_dict['pred_energy'] = np.zeros_like(processed_pred_dict['pred_sid'], np.float)
+        
+        #dirty hacks
+        processed_pred_dict['pred_mean_X'] = np.zeros_like(processed_pred_dict['pred_sid'], np.float)
+        processed_pred_dict['pred_mean_Y'] = np.zeros_like(processed_pred_dict['pred_sid'], np.float)
+        processed_pred_dict['pred_mean_Z'] = np.zeros_like(processed_pred_dict['pred_sid'], np.float)
 
         for idx in pred_shower_alpha_idx:
             filter = (processed_pred_dict['pred_sid']==pred_sid[idx])[:,0]
             processed_pred_dict['pred_energy'][filter] \
                 = np.sum(pred_dict['pred_energy_corr_factor'][filter] * features_dict['recHitEnergy'][filter])
+          
+        if True:        
+            for k in ['X','Y','Z']:
+                for idx in pred_shower_alpha_idx:
+                    ispred = (processed_pred_dict['pred_sid']==pred_sid[idx])[:,0]
+                    weight = features_dict['recHitEnergy'][ispred]
+                    weightsum = np.sum(weight)+1e-5
+                    processed_pred_dict['pred_mean_'+k][ispred]  = np.sum(weight * features_dict['recHit'+k][ispred])/weightsum
 
         processed_pred_dict.update(pred_dict)
         processed_pred_dict.pop('pred_beta')

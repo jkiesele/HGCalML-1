@@ -5,6 +5,8 @@ import pandas as pd
 import tensorflow as tf
 from scipy.optimize import linear_sum_assignment
 
+import time #timing
+
 def calculate_iou_tf(truth_sid,
                      pred_sid,
                      truth_shower_sid,
@@ -151,18 +153,21 @@ class ShowersMatcher:
 
         n = max(len(truth_shower_sid), len(pred_shower_sid))
         C = np.zeros((n, n))
+        ttime=time.time()
         if self.match_mode == 'iou_max':
             for i in range(len(pred_shower_sid)):
                 for j in range(len(truth_shower_sid)):
                     overlap = iou_matrix[i, j]
                     if overlap >= self.iou_threshold and allow(i,j):
                         C[i, j] = overlap
+        
         elif self.match_mode == 'emax_iou':
             for i in range(len(pred_shower_sid)):
                 for j in range(len(truth_shower_sid)):
                     overlap = iou_matrix[i, j]
                     if overlap >= self.iou_threshold and allow(i,j):
                         C[i, j] = min(self.graph.nodes[truth_shower_sid[j]]['energy'], self.graph.nodes[pred_shower_sid[i]]['energy'])
+        print('matrix copy took',time.time()-ttime,'s')
         return C
 
 

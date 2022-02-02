@@ -140,11 +140,20 @@ def _SlicingKnnGrad(op, gradidx, dstgrad):
 '''
 notes:
 
-inputs.
+pseudo code
 
-bins = assign_bins(coords)
-n_in_bin = tf.unique(bins)
-resh_idxs = reshuffle_by_bins_idxs(bins,n_in_bins) #p: bins.. hmm, maybe sort? but also slow
+bins = assign_bins(coords) #this can use nbins to define row split boundaries
+sorting = tf.argsort(bins)
+_, bin_boundaries = tf.unique_with_counts(bins)
+#together with sorting this now defines it all, can also be used for other binned ops
+
+...sort the inputs...
+idx,dist = binned_knn(...) #this can use the knowledge of nbins for row split boundaries directly in the bin-stepping part
+#the gradient of this doesn't need to take into account re-sorting as it is not part of the operation itself.
+
+#can also be used for other binned ops
+idx = sort_back(idx,sorting) 
+dist = sort_back(dist,sorting) 
 
 '''
 

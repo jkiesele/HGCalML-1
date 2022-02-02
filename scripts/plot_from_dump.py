@@ -9,7 +9,13 @@ import hplots.hgcal_analysis_plotter as hp
 with gzip.open(sys.argv[1], 'rb') as f:
     read_data = pickle.load(f)
 
+##PU hack
+from globals import pu
+print(read_data['showers_dataframe'].columns)
 
+read_data['showers_dataframe'] = read_data['showers_dataframe'][read_data['showers_dataframe']['truthHitAssignementIdx']<pu.t_idx_offset]
+#exit()
+###
 
 type = 'hgcal'
 if len(sys.argv) == 4:

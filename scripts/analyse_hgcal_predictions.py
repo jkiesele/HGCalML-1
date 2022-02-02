@@ -3,7 +3,7 @@ import os
 import gzip
 import pickle
 
-import mgzip
+import gzip
 
 import argparse
 import time
@@ -27,8 +27,9 @@ def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold,
     event_id = 0
 
     for i, file in enumerate(files_to_be_tested):
-        print("Analysing file", i, file)
-        with mgzip.open(file, 'rb') as f:
+        print("Analysing file", i, file, '(', (i/len(files_to_be_tested) * 100.), '%)')
+        try:
+          with gzip.open(file, 'rb') as f:
             file_data = pickle.load(f)
             for j, endcap_data in enumerate(file_data):
                 print("Analysing endcap",j)
@@ -47,6 +48,15 @@ def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold,
                 print('took',time.time()-stopwatch,'s to match')
                 stopwatch = time.time()
                 dataframe = showers_matcher.get_result_as_dataframe()
+                
+                import numpy as np
+                utruth = np.unique(truth_dict['truthHitAssignementIdx'])
+                print(dataframe['truthHitAssignementIdx'].shape)
+                print(utruth.shape)
+                print(np.setdiff1d(dataframe['truthHitAssignementIdx'],utruth ))
+                print(np.setdiff1d(utruth, dataframe['truthHitAssignementIdx']))
+                
+                
                 print('took',time.time()-stopwatch,'s to make data frame')
                 dataframe['event_id'] = event_id
                 event_id += 1
@@ -56,6 +66,8 @@ def analyse(preddir, pdfpath, beta_threshold, distance_threshold, iou_threshold,
                         print('\nWARNING REMOVING PU TRUTH MATCHED SHOWERS, HACK.\n')
                         dataframe = dataframe[dataframe['truthHitAssignementIdx']<pu.t_idx_offset]
                 showers_dataframe = pd.concat((showers_dataframe, dataframe))
+        except Exception as e:
+            print('problem with file',file,e,'will continue')
 
     # This is only to write to pdf files
     scalar_variables = {

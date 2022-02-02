@@ -183,27 +183,27 @@ for i in tqdm.tqdm(range(nevents)):
         ccfile = outdir + str(i) + "_event.html"
         fig.write_html(ccfile)
         
-        continue
-        
-        fig = px.scatter_3d(df3d, x="recHitX", y="recHitZ", z="recHitY", 
-                                    color="truthHitAssignementIdx", size="recHitHitR",
-                                    symbol = "recHitID",
-                                    hover_data=hover_data,
-                                    template='plotly_dark',
-                        color_continuous_scale=px.colors.sequential.Rainbow)
-        fig.update_traces(marker=dict(line=dict(width=0)))
-        ccfile = outdir + str(i) + "_event_hitsize.html"
-        fig.write_html(ccfile)
-        
-        fig = px.scatter_3d(df3d, x="recHitX", y="recHitZ", z="recHitY", 
-                                    color="truthHitAssignementIdx", size="t_inv_spec",
-                                    hover_data=hover_data,
-                                    symbol = "recHitID",
-                                    template='plotly_dark',
-                        color_continuous_scale=px.colors.sequential.Rainbow)
-        fig.update_traces(marker=dict(line=dict(width=0)))
-        ccfile = outdir + str(i) + "_spect.html"
-        fig.write_html(ccfile)
+        #continue
+        #
+        #fig = px.scatter_3d(df3d, x="recHitX", y="recHitZ", z="recHitY", 
+        #                            color="truthHitAssignementIdx", size="recHitHitR",
+        #                            symbol = "recHitID",
+        #                            hover_data=hover_data,
+        #                            template='plotly_dark',
+        #                color_continuous_scale=px.colors.sequential.Rainbow)
+        #fig.update_traces(marker=dict(line=dict(width=0)))
+        #ccfile = outdir + str(i) + "_event_hitsize.html"
+        #fig.write_html(ccfile)
+        #
+        #fig = px.scatter_3d(df3d, x="recHitX", y="recHitZ", z="recHitY", 
+        #                            color="truthHitAssignementIdx", size="t_inv_spec",
+        #                            hover_data=hover_data,
+        #                            symbol = "recHitID",
+        #                            template='plotly_dark',
+        #                color_continuous_scale=px.colors.sequential.Rainbow)
+        #fig.update_traces(marker=dict(line=dict(width=0)))
+        #ccfile = outdir + str(i) + "_spect.html"
+        #fig.write_html(ccfile)
         
     if args.hipsearch:
         iEr_dep,  iEr_corr_dep, iE = hipsearch(df3d, i, outdir, args.plots)

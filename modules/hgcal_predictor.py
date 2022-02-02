@@ -10,13 +10,15 @@ from datastructures import TrainData_TrackML
 import time
 
 class HGCalPredictor():
-    def __init__(self, input_source_files_list, training_data_collection, predict_dir, unbuffered=False, model_path=None, max_files=4, inputdir=None):
+    def __init__(self, input_source_files_list, training_data_collection, predict_dir, 
+                 unbuffered=False, model_path=None, max_files=4, inputdir=None):
         self.input_data_files = []
         self.inputdir = None
         self.predict_dir = predict_dir
         self.unbuffered=unbuffered
         self.max_files = max_files
         print("Using HGCal predictor class")
+        
 
         ## prepare input lists for different file formats
 
@@ -39,8 +41,10 @@ class HGCalPredictor():
                     self.input_data_files.append(s.replace('\n', '').replace(" ", ""))
 
         self.dc = None
-        if input_source_files_list[-6:] == ".djcdc" and not training_data_collection[-6:] == ".djcdc":
+        if input_source_files_list[-6:] == ".djcdc":
             self.dc = DataCollection(input_source_files_list)
+        elif training_data_collection is None:
+            raise ValueError("HGCalPredictor: provide at least one data collection as input")
         else:
             self.dc = DataCollection(training_data_collection)
 
@@ -128,6 +132,9 @@ class HGCalPredictor():
             outputs.append(outfilename)
             if not output_to_file:
                 all_data.append(dumping_data)
+                
+            del td
+            del gen
 
         if output_to_file:
             with open(self.predict_dir + "/outfiles.txt", "w") as f:

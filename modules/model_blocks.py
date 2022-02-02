@@ -120,6 +120,7 @@ def first_coordinate_adjustment(coords, x, energy, rs, t_idx,
                                 name='first_coords',
                                 n_coords=3,
                                 record_metrics=False,
+                                approx_knn=True,
                                 debugplots_after=-1,
                                 use_multigrav=True): 
     
@@ -135,9 +136,13 @@ def first_coordinate_adjustment(coords, x, energy, rs, t_idx,
                                  outdir=debug_outdir,
                                  name=name+'plt1')([coords,energy,t_idx,rs])
     
+    radius='dynamic'
+    if not approx_knn:
+        radius = .8
     
-    nidx,dist = KNN(K=32,radius='dynamic', #use dynamic feature # 24
+    nidx,dist = KNN(K=32,radius=radius, #use dynamic feature # 24
                     record_metrics=record_metrics,
+                    use_approximate_knn=approx_knn,
                     name=name+'_knn',
                     min_bins=[7,7]
                     )([coords,rs])#all distance weighted afterwards
@@ -305,6 +310,7 @@ def pre_selection_model_full(orig_inputs,
                              use_edges=True,
                              n_coords=3,
                              pass_through=False,
+                             approx_knn=True,
                              print_info=False,
                              record_metrics=False,
                              omit_reduction=False, #only trains coordinate transform. useful for pretrain phase
@@ -362,7 +368,8 @@ def pre_selection_model_full(orig_inputs,
         debugplots_after=debugplots_after,
         n_coords=n_coords,
         record_metrics=record_metrics,
-        use_multigrav=use_multigrav
+        use_multigrav=use_multigrav,
+        approx_knn=approx_knn
         )
     #create the gradients
     coords = LLClusterCoordinates(
