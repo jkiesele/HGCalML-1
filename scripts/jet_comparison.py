@@ -9,6 +9,23 @@ import tqdm
 import matplotlib
 matplotlib.use("Agg")
 
+
+g_fontsize=14
+def setstyles(fontsize=14):
+    global g_fontsize
+    g_fontsize=fontsize
+    
+    axes = {'labelsize': fontsize,
+            'titlesize': fontsize}
+    
+    matplotlib.rc('axes', **axes)
+    matplotlib.rc('legend',fontsize=fontsize)
+    matplotlib.rc('xtick',labelsize=fontsize)
+    matplotlib.rc('ytick',labelsize=fontsize)
+    matplotlib.rc('lines', linewidth=2)
+
+setstyles(14)
+
 import uproot3 as uproot
 import awkward as ak1
 
@@ -243,7 +260,10 @@ def create_pepr_data():
     for k in  evdfs.keys():
         a = np.array(evdfs[k])
         a = np.reshape(a,[-1,2])
-        evdfs[k] = np.sum(a,axis=-1)
+        if "_nav_const" in k:
+            evdfs[k] = np.mean(a,axis=-1)
+        else:
+            evdfs[k] = np.sum(a,axis=-1)
     
     evdfs = pd.DataFrame().from_dict(evdfs)
     evdfs.to_pickle(args.outfilePrefix+'_events_pepr.df.pkl')
@@ -263,10 +283,10 @@ def read_file(fname):
     
     fdfs=[]
     ntpart=0
-    aPt = readArray(tree,"TICLCand_pt")
-    aeta = readArray(tree,"TICLCand_eta")
-    aphi = readArray(tree,"TICLCand_phi")
-    amass = readArray(tree,"TICLCand_mass")
+    aPt = readArray(tree,"PFTICLCand_pt")
+    aeta = readArray(tree,"PFTICLCand_eta")
+    aphi = readArray(tree,"PFTICLCand_phi")
+    amass = readArray(tree,"PFTICLCand_mass")
     aE = aPt * np.cosh(aeta)
     
     tgood = readArray(tree,'MergedSimCluster_isTrainable')
@@ -466,7 +486,7 @@ plt.savefig("truth_part.pdf")
 plt.close()
 
 
-plt.hist(pepr_df['t_pT'],bins=51,label='pepr')
+plt.hist(pepr_df['t_pT'],bins=51,label='end-to-end')
 plt.hist(ticl_df['t_pT'],bins=51,alpha=0.5)
 plt.yscale('log')
 plt.xlabel("Jet pT [GeV]")
@@ -476,44 +496,50 @@ plt.savefig("Jets_pt.pdf")
 plt.close()
 
 
-plt.hist(pepr_evdf['t_n_jets'],bins=51,label='truth')
-plt.hist(pepr_evdf['p_n_jets']+0.1,bins=51,label='pepr',alpha=0.8)
-plt.hist(ticl_evdf['p_n_jets']-0.1,bins=51,alpha=0.8)
-plt.yscale('log')
-plt.xlabel("Number of Jets per Event")
-plt.ylabel("N")
-plt.legend()
-plt.savefig("N_jets.pdf")
-plt.close()
-
-plt.hist(ticl_evdf['t_n_jets_pt10'],bins=51,label='truth',color='tab:green')
-plt.hist(pepr_evdf['p_n_jets_pt10']+0.1,bins=51,label='pepr',alpha=0.9,color='tab:orange')
-plt.hist(ticl_evdf['p_n_jets_pt10']-0.1,bins=51,alpha=0.9,color='tab:blue')
-plt.yscale('log')
-plt.xlabel("Number of Jets per Event")
-plt.ylabel("N")
-plt.legend()
-plt.savefig("N_jets_pt10.pdf")
-plt.close()
-
-plt.hist(ticl_evdf['t_n_jets_pt20'],bins=51,label='truth',color='tab:green')
-plt.hist(pepr_evdf['p_n_jets_pt20']+0.1,bins=51,label='pepr',alpha=0.9,color='tab:orange')
-plt.hist(ticl_evdf['p_n_jets_pt20']-0.1,bins=51,alpha=0.9,color='tab:blue')
-plt.yscale('log')
-plt.xlabel("Number of Jets per Event")
-plt.ylabel("N")
-plt.legend()
-plt.savefig("N_jets_pt20.pdf")
-plt.close()
 
 
-plt.hist(ticl_evdf['t_nav_const'],bins=51,label='truth',color='tab:green')
-plt.hist(pepr_evdf['p_nav_const'],bins=51,label='pepr',alpha=0.9,color='tab:orange')
-plt.hist(ticl_evdf['p_nav_const'],bins=51,alpha=0.9,color='tab:blue')
+#plt.hist(pepr_evdf['t_n_jets'],bins=51,label='truth')
+#plt.hist(pepr_evdf['p_n_jets']+0.1,bins=51,label='end-to-end',alpha=0.8)
+#plt.hist(ticl_evdf['p_n_jets']-0.1,bins=51,alpha=0.8)
+#plt.yscale('log')
+#plt.xlabel("Number of Jets per Event")
+#plt.ylabel("N")
+#plt.legend()
+#plt.savefig("N_jets.pdf")
+#plt.close()
+
+njetsbins=np.array([-0.5,0.5,1.5,2.5,3.5,4.5])
+
+#plt.hist(ticl_evdf['t_n_jets_pt10'],bins=njetsbins,label='truth',color='tab:green',histtype='step')
+#plt.hist(pepr_evdf['p_n_jets_pt10'],bins=njetsbins,label='end-to-end',color='tab:orange',histtype='step')
+#plt.hist(ticl_evdf['p_n_jets_pt10'],bins=njetsbins,color='tab:blue',histtype='step')
+#plt.yscale('log')
+#plt.xlabel("Number of Jets per Event")
+#plt.ylabel("N")
+#plt.legend()
+#plt.savefig("N_jets_pt10.pdf")
+#plt.close()
+#
+#plt.hist(ticl_evdf['t_n_jets_pt20'],bins=njetsbins,label='truth',
+#         color='tab:green',histtype='step')
+#plt.hist(pepr_evdf['p_n_jets_pt20'],bins=njetsbins,label='end-to-end',color='tab:orange',histtype='step')
+#plt.hist(ticl_evdf['p_n_jets_pt20'],bins=njetsbins,color='tab:blue',histtype='step')
+#plt.yscale('log')
+#plt.xlabel("Number of Jets per Event")
+#plt.ylabel("N")
+#plt.legend()
+#plt.savefig("N_jets_pt20.pdf")
+#plt.close()
+
+
+plt.hist(ticl_evdf['t_nav_const'],bins=51,label='truth',color='tab:green',histtype='step')
+plt.hist(pepr_evdf['p_nav_const'],bins=51,label='end-to-end',alpha=1,color='tab:orange',histtype='step')
+plt.hist(ticl_evdf['p_nav_const'],bins=51,label='classic', alpha=1.,color='tab:blue',histtype='step')
 plt.yscale('log')
 plt.xlabel("Average number of constituents per jet in an event")
 plt.ylabel("N")
 plt.legend()
+plt.title(r'CMSSW 12_1_1,     $q\bar{q} \rightarrow t\bar{t}$,     Jets (no $\nu$, $\mu$)')
 plt.savefig("N_const.pdf")
 plt.close()
 
@@ -531,7 +557,7 @@ print('responses')
 
 sumbins = [300.,500., 600.,700., 800., 900.]
 x,y = response(sumbins, pepr_evdf['p_total_E'], pepr_evdf['t_total_E'])
-plt.plot(x,y,label='pepr',color='tab:orange')
+plt.plot(x,y,label='end-to-end',color='tab:orange')
 x,y = response(sumbins, ticl_evdf['p_total_E'], ticl_evdf['t_total_E'])
 plt.plot(x,y,color='tab:blue')
 plt.legend()
@@ -541,56 +567,74 @@ plt.savefig("event_sums.pdf")
 plt.close()
 
 x,y = response(sumbins, pepr_evdf['p_total_E'], pepr_evdf['t_total_E'],std=True)
-plt.plot(x,y,label='pepr',color='tab:orange')
+plt.plot(x,y,label='end-to-end',color='tab:orange')
 x,y = response(sumbins, ticl_evdf['p_total_E'], ticl_evdf['t_total_E'],std=True)
 plt.plot(x,y,color='tab:blue')
 plt.legend()
 plt.xlabel("Total energy [GeV]")
-plt.ylabel(r"\sigma (reco energy / true energy)/<reco energy / true energy>")
+plt.ylabel(r"$\sigma$(reco energy / true energy)/<reco energy / true energy>")
 plt.savefig("event_sums_resolution.pdf")
 plt.close()
 
-metbins = [10., 15., 20.,  30., 50.]
 ##MET
 def MET(px,py):
     return np.sqrt(px**2+py**2)
 
+metbins = [10., 15., 20.,  30., 50., 100., 200., 400.]
+
+plt.hist(MET(pepr_evdf['t_met_px'], pepr_evdf['t_met_py']))
+plt.xlabel("True MET [GeV]")
+plt.savefig("met.pdf")
+plt.close()
+
+
 x,y = response(metbins, MET(pepr_evdf['p_met_px'], pepr_evdf['p_met_py']), 
                MET(pepr_evdf['t_met_px'], pepr_evdf['t_met_py']),std=True)
-plt.plot(x,y,label='pepr',color='tab:orange')
+plt.plot(x,y,label='end-to-end',color='tab:orange')
 x,y = response(metbins, MET(ticl_evdf['p_met_px'], ticl_evdf['p_met_py']), 
                MET(ticl_evdf['t_met_px'], ticl_evdf['t_met_py']),std=True)
 plt.plot(x,y,color='tab:blue')
 plt.legend()
 plt.xlabel("True forward MET [GeV]")
-plt.ylabel(r"\sigma (reco MET / true MET)/<reco MET / true MET>")
+plt.ylabel(r"$\sigma$(reco MET / true MET)/<reco MET / true MET>")
 plt.savefig("met_resolution.pdf")
 plt.close()
 
 
 ##
+fig, (ax1,ax2) = plt.subplots(nrows=2, sharex=True, subplot_kw=dict()) # frameon=False removes frames
 
-ptbins = [5.,  15., 20.,  30., 50.]
+plt.subplots_adjust(hspace=.0)
+
+
+ptbins = [5.,  15., 20.,  30., 50., 150., 250.]
 
 #first make sure the truth makes sense
 x,y = response(ptbins, pepr_df['p_pT'], pepr_df['t_pT'])
-plt.plot(x,y,label='pepr',color='tab:orange')
+ax1.plot(x,y,label='end-to-end',color='tab:orange')
 x,y = response(ptbins, ticl_df['p_pT'], ticl_df['t_pT'])
-plt.plot(x,y,color='tab:blue')
-plt.legend()
-plt.xlabel("Jet pT[GeV]")
-plt.ylabel("reco pT / true pT")
-plt.savefig("response.pdf")
-plt.close()
+ax1.plot(x,y,color='tab:blue',label='classic')
+#plt.legend()
+#ax1.set_xlabel(r"Jet $p_{T}$[GeV]")
+ax1.set_ylabel(r"reco $p_T$ / true $p_T$")
+#plt.savefig("response.pdf")
+#plt.close()
 
 
 x,y = response(ptbins, pepr_df['p_pT'], pepr_df['t_pT'],std=True)
-plt.plot(x,y,label='pepr',color='tab:orange')
+ax2.plot(x,y,label='end-to-end',color='tab:orange')
 x,y = response(ptbins, ticl_df['p_pT'], ticl_df['t_pT'],std=True)
-plt.plot(x,y,color='tab:blue')
+ax2.plot(x,y,color='tab:blue',label='classic')
+ax2.set_xlabel("Jet $p_T$ [GeV]")
+ax2.set_ylabel(r"$\sigma(p_{T})$ /< $p_{T}$ >")
+
+ax2.set_ylim([0.,0.299])
+
+ax1.grid()
+ax2.grid()
+
+ax1.set_title(r'CMSSW 12_1_1,     $q\bar{q} \rightarrow t\bar{t}$,     Jets (no $\nu$, $\mu$)')
 plt.legend()
-plt.xlabel("Jet pT[GeV]")
-plt.ylabel(r"\sigma(reco pT / true pT)/<reco pT / true pT>")
 plt.savefig("resolution.pdf")
 plt.close()
 
