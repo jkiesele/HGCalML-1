@@ -94,7 +94,7 @@ def calc_ragged_shower_indices(assignment, row_splits,
 
 
     return sorting_indices_showers_ragged
-
+    
 # FIXME, there seems to be some sort of squeeze happening for '1' ragged dimensions?    
 def calc_ragged_cond_indices(assignment, alpha_idx, n_condensates, row_splits, 
                            gather_noise=True, return_reverse=True):
@@ -288,12 +288,9 @@ def BuildAndAssignCondensatesBinned(ccoords,
     dist_h = dist[high_beta_indices]
     orig_indices_h = orig_indices[high_beta_indices]
 
-    x = ccoords_h.numpy()
-    print(len(x),len(np.unique(x)))
-    0/0
-
     # Would set default to -1 instead of 0 (where no scattering is done)
     indices_to_filtered = tf.scatter_nd(tf.where(high_beta_indices),tf.range(betas_h.shape[0])+1, [betas.shape[0]])-1
+
 
     with tf.device('/cpu'):
         condensates_assigned_h,assignment, alpha_indices,asso,n_condensates =  _bc_op_binned.BinnedAssignToCondensates(
@@ -314,7 +311,6 @@ def BuildAndAssignCondensatesBinned(ccoords,
                 row_splits=row_splits,
                 row_splits_h=row_splits_h)
 
-
     assignment = tf.gather(assignment, sorting_indices_back)
     asso = tf.gather(asso, sorting_indices_back)
 
@@ -323,17 +319,17 @@ def BuildAndAssignCondensatesBinned(ccoords,
     
     #switch to standard format
     assignment, asso_idx, alpha_idx, is_cond, n_condensates = assignment[:, tf.newaxis], asso, pred_shower_alpha_idx, is_cond[:, np.newaxis], n_condensates
-
     
-    # if keep_noise:
-    #     o = merge_noise_as_indiv_cp(assignment, asso_idx, alpha_idx, is_cond, n_condensates, row_splits)
-    #     assignment, asso_idx, alpha_idx, is_cond, n_condensates = o
+    if keep_noise:
+        o = merge_noise_as_indiv_cp(assignment, asso_idx, alpha_idx, is_cond, n_condensates, row_splits)
+        assignment, asso_idx, alpha_idx, is_cond, n_condensates = o
+
 
     #sanity check
     try:
         adapted_assignment = tf.RaggedTensor.from_row_splits(assignment, row_splits)
         n_nonoise_condensates =  tf.reduce_max(adapted_assignment, axis=1)[:,0] + 1
-        n_nonoise_condensates = tf.concat([n_nonoise_condensates[0:1]*0,
+        n_nonoise_condensates = tf.concat([n_nonoise_condensates[0:1]*0, 
                                            tf.cumsum(n_nonoise_condensates, axis=0)],axis=0)
     
         # fails with 
@@ -378,7 +374,6 @@ def BuildAndAssignCondensatesBinned(ccoords,
 
 
 #### convenient helpers, not the OP itself
-
 
 
 
