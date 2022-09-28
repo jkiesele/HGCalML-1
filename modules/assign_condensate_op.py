@@ -12,8 +12,40 @@ def cumsum_ragged(tensor, exclusive=False):
     v = v - w
     return v
 
+
+def merge_noise_as_indiv_cp(assignment, asso_idx, alpha_idx, is_cond, n_condensates, row_splits):
+    #assignment first
+    r_orig_assignment = tf.RaggedTensor.from_row_splits(assignment, row_splits)
+    assignment = r_orig_assignment
+    noise_mask = assignment < 0
+    x = cumsum_ragged(tf.cast(noise_mask, tf.int32))
+    x = tf.where(noise_mask, x, 0)
+    assignment = tf.where(noise_mask, x-1, assignment+tf.reduce_max(x, axis=1, keepdims=True))
+    
+    assignment = assignment.values #back to flat
+    
+    #-1 has been added in the front of every row split
+    
+    allrange = tf.range(tf.shape(asso_idx)[0])
+    
+    rallrange = tf.RaggedTensor.from_row_splits(allrange, row_splits)
+    rallrange = tf.ragged.boolean_mask(rallrange, r_orig_assignment[:,:,0]<0)
+    
+    alpha_idx = tf.concat([rallrange, tf.RaggedTensor.from_row_splits(alpha_idx, n_condensates)],axis=1)
+    alpha_idx = alpha_idx.values
+    
+    #print('>>>',asso_idx,allrange, is_cond)
+    is_cond = tf.where(asso_idx<0, True, is_cond[:,0])
+    asso_idx = tf.where(asso_idx<0, allrange, asso_idx)
+    
+    r_is_cond = tf.RaggedTensor.from_row_splits(is_cond, row_splits)
+    n_condensates = tf.concat([n_condensates[0:1], tf.cumsum(tf.reduce_sum(tf.cast(r_is_cond, dtype='int32'), axis=1),axis=0)],axis=0)
+    
+    return assignment, asso_idx, alpha_idx, is_cond[...,tf.newaxis], n_condensates
+    
+
 def calc_ragged_shower_indices(assignment, row_splits,
-                               gather_noise=True, merge_noise=False):
+                               gather_noise=True):
     """
 
     :param assignment: [nvert, 1] Values should be consecutive i.e. -1,0,1,2,3,...N. Same is true for the every segment
@@ -22,8 +54,6 @@ def calc_ragged_shower_indices(assignment, row_splits,
     :param row_splits: [nvert+1], row splits
     :param gather_noise: boolean, whether to gather noise or not. If set to True, the first element in the shower
                          dimension will always correspond to the noise even if there is no noise vertex present.
-    :param merge_noise: If True, noise showers will be merged as one; and that would be the first shower in every endcap.
-                        If False, all the noise hits will get their own shower.
 
     :return: a double ragged tensor of indices, first ragged dimension iterates endcaps/samples and the second, showers
              in that endcap. This can be used in gather_nd as follows:
@@ -35,14 +65,7 @@ def calc_ragged_shower_indices(assignment, row_splits,
     if gather_noise:
         # move up one if there is any noise a row split
         assignment = tf.RaggedTensor.from_row_splits(assignment, row_splits)
-
-        if not merge_noise:
-            noise_mask = assignment<0
-            x = cumsum_ragged(tf.cast(noise_mask, tf.int32))
-            x = tf.where(noise_mask, x, 0)
-            assignment = tf.where(noise_mask, x-1, assignment+tf.reduce_max(x, axis=1, keepdims=True))
-        else:
-            assignment = assignment - tf.reduce_min(assignment, axis=1, keepdims=True)
+        assignment = assignment - tf.reduce_min(assignment, axis=1, keepdims=True)
 
         assignment = assignment.values
         assignment = assignment[:, 0]
@@ -71,8 +94,8 @@ def calc_ragged_shower_indices(assignment, row_splits,
 
 
     return sorting_indices_showers_ragged
-    
-    
+
+# FIXME, there seems to be some sort of squeeze happening for '1' ragged dimensions?    
 def calc_ragged_cond_indices(assignment, alpha_idx, n_condensates, row_splits, 
                            gather_noise=True, return_reverse=True):
     '''
@@ -110,18 +133,21 @@ def calc_ragged_cond_indices(assignment, alpha_idx, n_condensates, row_splits,
     alpha_exp = alpha_idx[...,tf.newaxis]
     
     adapted_assignment = tf.RaggedTensor.from_row_splits(assignment, row_splits)
-    n_nonoise_condensates = n_condensates #tf.reduce_max(adapted_assignment, axis=1)[:,0] + 1
-    #n_nonoise_condensates = tf.concat([n_nonoise_condensates[0:1]*0, 
-    #                                   tf.cumsum(n_nonoise_condensates, axis=0)],axis=0)
+    n_nonoise_condensates =  tf.reduce_max(adapted_assignment, axis=1)[:,0] + 1
+    n_nonoise_condensates = tf.concat([n_nonoise_condensates[0:1]*0, 
+                                       tf.cumsum(n_nonoise_condensates, axis=0)],axis=0)
     
+    # fails with 
+    # tf.Tensor([   0 1437 2453 3846 4948], shape=(5,), dtype=int32) tf.Tensor([0 2 2 2 2], shape=(5,), dtype=int32)
+    #print(n_condensates, n_nonoise_condensates)
     #print(f'{n_nonoise_condensates}, \n {alpha_exp}, {alpha_exp.shape},\n{assignment}, {row_splits}')
     rc_ass = tf.RaggedTensor.from_row_splits(alpha_exp, n_nonoise_condensates)
     
-    if row_splits.shape[0] is None: #no point to look for noise in nothing
-        if return_reverse:
-            return rc_ass, adapted_assignment.values,\
-                 tf.reduce_sum(adapted_assignment, axis=-1, keepdims=True).values
-        return rc_ass
+    #if row_splits.shape[0] is None: #no point to look for noise in nothing
+    #    if return_reverse:
+    #        return rc_ass, adapted_assignment.values,\
+    #             tf.reduce_sum(adapted_assignment, axis=-1, keepdims=True).values
+    #    return rc_ass
     
     if gather_noise:
         
@@ -189,7 +215,9 @@ def BuildAndAssignCondensatesBinned(ccoords,
                         no_condensation_mask = None,
                         distance_threshold = 1.,
                         assign_by_max_beta=False,
-                        nbin_dims=3):
+                        nbin_dims=3,
+                        keep_noise=False,
+                        ):
     """
     :param ccoords: [nvert,ndim] Clustering coordinates of shape
     :param betas: [nvert, 1] Betas of shape
@@ -202,6 +230,9 @@ def BuildAndAssignCondensatesBinned(ccoords,
     :param assign_by_max_beta: Boolean. If set to True, the higher beta vertex eats up all the vertices in its radius. If set to
              False, the assignment for a vertex is done to the condensate it is the closest to. True behaves like
              anti-kt jet clustering algorighm while False behaves like XCone.
+    :param keep_noise: If True, "noise" hits that remain after clustering will become one condensation point each. If False,
+                       they will be merged into the first 'shower' entry in each ragged index tensor
+                        
     :return: 5 elements: (in order)
     1. assignment: [nvert,1] Assignment in ascending order from 0,1,2,3...N. Resets at every ragged segment.
                    tf.gather_nd(assignment, alpha_idx[...,tf.newaxis]) is guaranteed to be [0,1,2,3,4...., (row split), 0,1,2,3,4...]
@@ -257,9 +288,12 @@ def BuildAndAssignCondensatesBinned(ccoords,
     dist_h = dist[high_beta_indices]
     orig_indices_h = orig_indices[high_beta_indices]
 
+    x = ccoords_h.numpy()
+    print(len(x),len(np.unique(x)))
+    0/0
+
     # Would set default to -1 instead of 0 (where no scattering is done)
     indices_to_filtered = tf.scatter_nd(tf.where(high_beta_indices),tf.range(betas_h.shape[0])+1, [betas.shape[0]])-1
-
 
     with tf.device('/cpu'):
         condensates_assigned_h,assignment, alpha_indices,asso,n_condensates =  _bc_op_binned.BinnedAssignToCondensates(
@@ -280,13 +314,57 @@ def BuildAndAssignCondensatesBinned(ccoords,
                 row_splits=row_splits,
                 row_splits_h=row_splits_h)
 
+
     assignment = tf.gather(assignment, sorting_indices_back)
     asso = tf.gather(asso, sorting_indices_back)
 
     pred_shower_alpha_idx = alpha_indices[alpha_indices!=-1]
     is_cond = tf.cast(tf.scatter_nd(pred_shower_alpha_idx[:, tf.newaxis], tf.ones(pred_shower_alpha_idx.shape[0]), [betas.shape[0]]), tf.bool)
+    
+    #switch to standard format
+    assignment, asso_idx, alpha_idx, is_cond, n_condensates = assignment[:, tf.newaxis], asso, pred_shower_alpha_idx, is_cond[:, np.newaxis], n_condensates
 
-    return assignment[:, tf.newaxis], asso, pred_shower_alpha_idx, is_cond[:, np.newaxis], n_condensates
+    
+    # if keep_noise:
+    #     o = merge_noise_as_indiv_cp(assignment, asso_idx, alpha_idx, is_cond, n_condensates, row_splits)
+    #     assignment, asso_idx, alpha_idx, is_cond, n_condensates = o
+
+    #sanity check
+    try:
+        adapted_assignment = tf.RaggedTensor.from_row_splits(assignment, row_splits)
+        n_nonoise_condensates =  tf.reduce_max(adapted_assignment, axis=1)[:,0] + 1
+        n_nonoise_condensates = tf.concat([n_nonoise_condensates[0:1]*0,
+                                           tf.cumsum(n_nonoise_condensates, axis=0)],axis=0)
+    
+        # fails with 
+        # tf.Tensor([   0 1437 2453 3846 4948], shape=(5,), dtype=int32) tf.Tensor([0 2 2 2 2], shape=(5,), dtype=int32)
+        tf.assert_equal(n_condensates, n_nonoise_condensates)
+    
+    except Exception as e:
+        import pickle
+        with open('BuildAndAssignCondensatesBinned_error.pkl','wb') as f:
+            pickle.dump(
+                {'assignment': assignment.numpy(),
+                 'asso_idx': asso_idx.numpy(),
+                 'alpha_idx': alpha_idx.numpy(),
+                 'is_cond': is_cond.numpy(),
+                 'n_condensates': n_condensates.numpy(),
+                 'from_assignment_n_condensates': n_nonoise_condensates.numpy(),
+                 'row_splits': row_splits.numpy(),
+                 #input
+                 'ccoords' : ccoords.numpy(),
+                 'betas' : betas.numpy(),
+                 'dist':dist.numpy(),
+                 'beta_threshold':beta_threshold,
+                 
+                 'assign_by_max_beta':assign_by_max_beta,
+                 'no_condensation_mask':no_condensation_mask,
+                 'keep_noise': keep_noise             
+                    },f)
+        raise e
+
+
+    return assignment, asso_idx, alpha_idx, is_cond, n_condensates
 
 
 

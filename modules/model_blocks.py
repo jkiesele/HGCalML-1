@@ -953,6 +953,39 @@ from RaggedLayers import RaggedCollapseHitInfo, RaggedDense, RaggedToFlatRS, Fla
 from GravNetLayersRagged import RaggedGravNet   
 from LossLayers import LLFullOCThresholds 
     
+    
+def tiny_intermediate_condensation(
+        x, rs, energy, t_specweight, t_idx,
+        trainable=True,
+        record_metrics=True,
+        cluster_dims=3,
+        name='intermediate_condensation'
+        ):
+    
+    beta = Dense(1,activation='sigmoid',trainable=trainable,name=name+'_proto_beta')(x)
+    d = ScalarMultiply(2.)(Dense(1, activation='sigmoid',name=name+'dense_d')(x))
+    ccoords = Dense(cluster_dims,name=name+'dense_ccoords',trainable=trainable)(x)
+    
+    beta = LLBasicObjectCondensation(
+        q_min=.2,#high qmin here
+        implementation = 'std',
+        record_batch_time = record_metrics,
+        scale = 0.2,
+        active=trainable,
+        print_batch_time = True,
+        record_metrics = record_metrics,
+        use_average_cc_pos=0.1 #small
+        )([beta, ccoords, d,t_specweight,t_idx, rs])
+        
+    ch_idx, c_idx, rev_r, revflat,\
+     asso_idx = RaggedCreateCondensatesIdxs(t_d = 0.25, t_b = 0.1,
+                                                     return_thresholds=False)([beta,ccoords,d,rs])
+                                                     
+    c_x = RaggedSelectFromIndices()([x, c_idx])
+    
+    return RaggedSelectFromIndices()([c_x, rev_r])
+    
+        
 def intermediate_condensation(
         x, rs, energy, t_specweight, t_idx,
         trainable=True,
@@ -966,7 +999,7 @@ def intermediate_condensation(
     ccoords = Dense(cluster_dims,name=name+'dense_ccoords',trainable=trainable)(x)
     
     beta = LLBasicObjectCondensation(
-        q_min=1.,#high qmin here
+        q_min=.2,#high qmin here
         implementation = 'std',
         record_batch_time = record_metrics,
         #scale = 0.1,
@@ -976,46 +1009,47 @@ def intermediate_condensation(
         use_average_cc_pos=0.1 #small
         )([beta, ccoords, d,t_specweight,t_idx, rs])
     
+    
     #low thresholds
     ch_idx, c_idx, _, revflat,\
-     asso_idx,t_d, t_b = RaggedCreateCondensatesIdxs(t_d = 0.2, t_b = 0.7,
-                                                     return_thresholds=True)([beta,x,d,rs])
-
-    if False:
-        beta = LLOCThresholds(
-                   name=name+'_ll_oc_thresholds',
-                   active=trainable,
-                   highest_t_d = 1.,
-                   record_batch_time = record_metrics,
-                   lowest_t_b = 0.5,
-                   purity_target = 0.8,
-                   record_metrics=record_metrics)([beta, asso_idx, d, 
-                                                   ccoords , t_idx, t_d, t_b])
+     asso_idx = RaggedCreateCondensatesIdxs(t_d = 0.25, t_b = 0.1,
+                                            collapse_noise=False,
+                                                     return_thresholds=False)([beta,ccoords,d,rs])
+    # t_d, t_b
+    #if False:
+    #    beta = LLOCThresholds(
+    #               name=name+'_ll_oc_thresholds',
+    #               active=trainable,
+    #               highest_t_d = 1.,
+    #               record_batch_time = record_metrics,
+    #               lowest_t_b = 0.5,
+    #               purity_target = 0.8,
+    #               record_metrics=record_metrics)([beta, asso_idx, d, 
+    #                                               ccoords , t_idx, t_d, t_b])
+    #
+    #
+    #else:
+    #    beta = LLFullOCThresholds(
+    #        name=name+'_ll_full_oc_thresholds',
+    #        active=trainable,
+    #        purity_weight = 0.9,
+    #         )([beta, ccoords, d, c_idx, ch_idx, 
+    #            energy, t_idx, t_depe, rs, t_d, t_b])
     
-    
-    else:
-        beta = LLFullOCThresholds(
-            name=name+'_ll_full_oc_thresholds',
-            active=trainable,
-            purity_weight = 0.9,
-             )([beta, ccoords, d, c_idx, ch_idx, 
-                energy, t_idx, t_depe, rs, t_d, t_b])
-    
-    beta = StopGradient()(beta)
-    
+    x = Dense(64, activation='elu', name=name+'_predense')(x)
     c_x = RaggedSelectFromIndices()([x, c_idx])
     ch_x = RaggedSelectFromIndices()([x, ch_idx])
     
     #print('c_x, ch_x',c_x.shape, ch_x.shape)
     c_x_skip_flat,_ = RaggedToFlatRS()(c_x)
     for c in ['mean','max']:
-        ch_x = RaggedMixHitAndCondInfo('concat')([ch_x, c_x])
-        ch_x = RaggedDense(64, activation='elu')(ch_x)
+        ch_x = RaggedMixHitAndCondInfo('add')([ch_x, c_x])
+        ch_x = RaggedDense(64, activation='elu', name=name+'_rdense1_'+c)(ch_x)
         c_x = RaggedCollapseHitInfo(c)(ch_x)
     
     #exchange through condensation points
     xf, xfrs = RaggedToFlatRS()(c_x)
-    xf = Concatenate()([xf, c_x_skip_flat, beta])
+    xf = Concatenate()([xf, c_x_skip_flat])
 
     if True:
         xf, _, gnnidx, gndist = RaggedGravNet(n_neighbours=32,
@@ -1024,28 +1058,31 @@ def intermediate_condensation(
                                                      n_propagate=64,
                                                      record_metrics=True,
                                                      feature_activation='elu',
-                                                     name=name+'_cpgn1'
+                                                     name=name+'_cpgn1',
+                                                     debug=True
                                                      )([xf, xfrs])
         
-        xf = DistanceWeightedMessagePassing([32,32],name=name+'dmp1',
-                                           trainable=trainable,
-                                           activation='elu')([xf,gnnidx,gndist])
+        #xf = DistanceWeightedMessagePassing([32,32],name=name+'dmp1',
+        #                                   trainable=trainable,
+        #                                   activation='elu')([xf,gnnidx,gndist])
 
     xf = Dense(64, activation='elu',name=name+'_d1',trainable=trainable)(xf)
     # don't make it ragged again. no reason
-    c_x = FlatRSToRagged()([xf, xfrs])
-    
-    for c in ['mean','max']:
-        ch_x = RaggedMixHitAndCondInfo('concat')([ch_x, c_x])
-        ch_x = RaggedDense(64, activation='elu')(ch_x)
-        c_x = RaggedCollapseHitInfo(c)(ch_x)
-    
-    c_x,_ = RaggedToFlatRS()(c_x)
-    xf = Concatenate()([c_x, c_x_skip_flat])
+    #c_x = FlatRSToRagged()([xf, xfrs])
+    #
+    #for c in ['mean','max']:
+    #    ch_x = RaggedMixHitAndCondInfo('add')([ch_x, c_x])
+    #    ch_x = RaggedDense(64, activation='elu', name=name+'_rdense2_'+c)(ch_x)
+    #    c_x = RaggedCollapseHitInfo(c)(ch_x)
+    #
+    #c_x,_ = RaggedToFlatRS()(c_x)
+    #print('c_x',c_x.shape)
+    xf = Concatenate()([xf, c_x_skip_flat])
     #backgather to all hits, x is flat again
     x = RaggedSelectFromIndices()([xf, revflat])
+    print('x',x.shape)
     #print('x out',x.shape, 'revflat',revflat.shape)
-    return x
+    return x #RaggedToFlatRS()(c_x)
     
     
     
