@@ -14,7 +14,7 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import copy
 from DeepJetCore.training.gpuTools import DJCSetGPUs
-from DeepJetCore.training import training_base as djc_training_base
+from DeepJetCore.training.training_base import training_base as training_base_djc
 import time
 
 
@@ -495,6 +495,7 @@ class HGCalTraining(training_base):
 
 class HGCalTraining_compat(training_base_djc):
     def __init__(self, *args, 
+                 interactive=None, #compatibility
                  **kwargs):
         '''
         Adds file logging

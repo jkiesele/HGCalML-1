@@ -8,7 +8,7 @@ import yaml
 import shutil
 from argparse import ArgumentParser
 
-import wandb
+from wandb_interface import wandb_wrapper as wandb
 from wandb_callback import wandbCallback
 import tensorflow as tf
 from tensorflow.keras.layers import Concatenate, Dense, Dropout
@@ -163,7 +163,7 @@ def config_model(Inputs, td, debug_outdir=None, plot_debug_every=2000):
     ### Loop over GravNet Layers ##############################################
     ###########################################################################
 
-    gravnet_regs = [0.01, 0.01, 0.01]
+    gravnet_reg = 0.01
 
     for i in range(GRAVNET_ITERATIONS):
 
@@ -189,7 +189,7 @@ def config_model(Inputs, td, debug_outdir=None, plot_debug_every=2000):
             )([x, rs])
 
         gndist = LLRegulariseGravNetSpace(
-                scale=gravnet_regs[i],
+                scale=gravnet_reg,
                 record_metrics=False,
                 name=f'regularise_gravnet_{i}')([gndist, prime_coords, gnnidx])
 
@@ -337,18 +337,6 @@ RECORD_FREQUENCY = 10
 PLOT_FREQUENCY = 40
 
 cb = [NanSweeper()] #this takes a bit of time checking each batch but could be worth it
-cb += [
-    plotClusteringDuringTraining(
-        use_backgather_idx=8 + i,
-        outputfile=train.outputDir + "/localclust/cluster_" + str(i) + '_',
-        samplefile=samplepath,
-        after_n_batches=500,
-        on_epoch_end=False,
-        publish=None,
-        use_event=0
-        )
-    for i in [0, 2, 4]
-    ]
 
 cb += [
     simpleMetricsCallback(
@@ -375,8 +363,6 @@ cb += [
     ]
 
 cb += [
-
-
     simpleMetricsCallback(
         output_file=train.outputDir+'/val_metrics.html',
         call_on_epoch=True,
@@ -393,7 +379,8 @@ cb += [
         )
     ]
 
-cb += [wandbCallback()]
+if not initargs.wandb:
+    cb += [wandbCallback()]
 
 ###############################################################################
 ### Actual Training ###########################################################

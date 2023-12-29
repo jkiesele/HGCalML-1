@@ -16,6 +16,7 @@ DenseOptions:
 
 BatchNormOptions:
   max_viscosity: 0.5
+  learn: True
 
 LossOptions:
   energy_loss_weight: .00
@@ -31,7 +32,7 @@ LossOptions:
 Training:
   - stage_1:
     batch_size: 120000
-    learning_rate: 0.0003
+    learning_rate: 0.000003
     epochs: 1
 
   - stage_2:
