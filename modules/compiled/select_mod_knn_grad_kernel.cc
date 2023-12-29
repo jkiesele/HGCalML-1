@@ -59,7 +59,6 @@ public:
         const Tensor &t_coord = context->input(3);
         const Tensor &t_coord_mod = context->input(4);
 
-
         int n_vert = t_coord.dim_size(0);
         int n_coords = t_coord.dim_size(1);
         int n_neigh = t_distances.dim_size(1);
@@ -67,11 +66,8 @@ public:
         auto coorddimsok = t_coord_mod.dims() == 3
                 && t_coord_mod.dim_size(0) == n_vert
                 && t_coord_mod.dim_size(1) == n_coords
-                && t_coord_mod.dim_size(2) == n_coords
-                ? tensorflow::Status(): tensorflow::Status(tensorflow::error::INVALID_ARGUMENT,
-                        "Coordinate modifier tensor needs to have 3 dimensions (V x C x C)");
+                && t_coord_mod.dim_size(2) == n_coords;
         OP_REQUIRES_OK(context,coorddimsok);
-
 
         TensorShape outputShape;
         outputShape.AddDim(n_vert);
